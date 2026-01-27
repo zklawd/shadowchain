@@ -1,0 +1,6 @@
+[package]
+name = "claim_artifact"
+type = "bin"
+authors = [""]
+
+[dependencies]

@@ -1,0 +1,6 @@
+[package]
+name = "combat_reveal"
+type = "bin"
+authors = [""]
+
+[dependencies]
