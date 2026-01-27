@@ -30,7 +30,7 @@ export interface Player {
   defense: number;
   artifacts: Artifact[];
   isAlive: boolean;
-  position?: Position; // Only known for the current player
+  position?: Position;
   score: number;
 }
 
@@ -53,7 +53,7 @@ export interface GameState {
   currentPlayer: string;
   events: CombatEvent[];
   winner?: string;
-  pot: string; // ETH amount
+  pot: string;
   entryFee: string;
   maxPlayers: number;
 }
@@ -69,5 +69,4 @@ export interface LobbyGame {
 }
 
 export type Direction = 'N' | 'S' | 'E' | 'W' | 'stay';
-
 export type GameAction = 'explore' | 'claim_artifact' | 'attack';
