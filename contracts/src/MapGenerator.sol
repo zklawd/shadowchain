@@ -91,7 +91,7 @@ library MapGenerator {
 
                 // ~30% wall chance
                 if (cellHash % 100 < 30) {
-                    walls |= (1 << idx);
+                    walls |= (uint256(1) << idx);
                 }
             }
         }
@@ -105,8 +105,10 @@ library MapGenerator {
         // Iterate with a shuffled ordering derived from seed
         for (uint16 attempt = 0; attempt < 256 && placed < maxTreasures; attempt++) {
             uint256 h = uint256(keccak256(abi.encodePacked(seed, attempt, "treasure")));
-            uint8 x = uint8(h % GRID_SIZE);
-            uint8 y = uint8((h >> 8) % GRID_SIZE);
+            // forge-lint: disable-next-line(unsafe-typecast)
+            uint8 x = uint8(h % GRID_SIZE); // safe: modulo 16 always fits in uint8
+            // forge-lint: disable-next-line(unsafe-typecast)
+            uint8 y = uint8((h >> 8) % GRID_SIZE); // safe: modulo 16 always fits in uint8
             uint8 idx = cellIndex(x, y);
 
             // Skip if wall, spawn zone, or already a treasure
@@ -114,7 +116,7 @@ library MapGenerator {
             if (_isSpawnZone(x, y)) continue;
             if ((treasures >> idx) & 1 == 1) continue;
 
-            treasures |= (1 << idx);
+            treasures |= (uint256(1) << idx);
             placed++;
         }
     }
