@@ -1,0 +1,9 @@
+# Player at (5,5), base stats (no artifacts), game_id=1
+x = "5"
+y = "5"
+salt = "111"
+player_salt = "999"
+artifact_ids = ["0", "0", "0", "0"]
+commitment = "0x1bed7f43610a11df6c89ae021f41cb2bf10fcb31b494135b9227350703a6506a"
+stats_commitment = "0x1f58a4784d9f2b428e2078864695880bae2c9b396178d044d53bbed59c163958"
+game_id = "1"

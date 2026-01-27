@@ -1,0 +1,7 @@
+# Player at position (10, 3) with salt 42, claiming artifact 1
+x = "10"
+y = "3"
+salt = "42"
+commitment = "0x0adfe81fe84da1119dc55c00baea2d71585e0b50f9e6b94dbb8d86c0e1f56cbf"
+artifact_cell_hash = "0x2760d8924cdeb966828ac6f2272a9d50bb202af191762b63edc1a9d34c99af0c"
+artifact_id = "1"

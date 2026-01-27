@@ -1,0 +1,10 @@
+# Move from (5,5) to (6,5) -- move east, no walls
+old_x = "5"
+old_y = "5"
+old_salt = "111"
+new_x = "6"
+new_y = "5"
+new_salt = "222"
+old_commitment = "0x1bed7f43610a11df6c89ae021f41cb2bf10fcb31b494135b9227350703a6506a"
+new_commitment = "0x21166cd1d1ae1c040b868d41e32dc91a69bc43336c8a51c7d68a378463c4334b"
+map_walls = ["0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0"]
