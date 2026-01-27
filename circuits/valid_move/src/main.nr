@@ -150,7 +150,7 @@ fn test_diagonal_move_fails() {
     let old_x: Field = 5;
     let old_y: Field = 5;
     let new_x: Field = 6;
-    let new_y: Field = 6; // Diagonal — invalid
+    let new_y: Field = 6; // Diagonal -- invalid
 
     let old_c = compute_commitment(old_x, old_y, old_salt);
     let new_c = compute_commitment(new_x, new_y, new_salt);
@@ -165,7 +165,7 @@ fn test_teleport_fails() {
     let old_x: Field = 0;
     let old_y: Field = 0;
     let new_x: Field = 10;
-    let new_y: Field = 10; // Teleport — invalid
+    let new_y: Field = 10; // Teleport -- invalid
 
     let old_c = compute_commitment(old_x, old_y, old_salt);
     let new_c = compute_commitment(new_x, new_y, new_salt);
@@ -194,7 +194,7 @@ fn test_wall_collision_fails() {
 
 #[test]
 fn test_move_at_boundary() {
-    // Move from (0,0) to (1,0) — valid at boundary
+    // Move from (0,0) to (1,0) -- valid at boundary
     let old_salt: Field = 111;
     let new_salt: Field = 222;
 
@@ -206,7 +206,7 @@ fn test_move_at_boundary() {
 
 #[test]
 fn test_move_at_max_boundary() {
-    // Move from (15,15) to (14,15) — valid at max boundary
+    // Move from (15,15) to (14,15) -- valid at max boundary
     let old_salt: Field = 111;
     let new_salt: Field = 222;
 
