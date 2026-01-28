@@ -2,9 +2,9 @@
 // Copyright 2022 Aztec
 pragma solidity >=0.8.21;
 
-uint256 constant CA_N = 32768;
-uint256 constant CA_LOG_N = 15;
-uint256 constant CA_NUMBER_OF_PUBLIC_INPUTS = 3;
+uint256 constant N = 32768;
+uint256 constant LOG_N = 15;
+uint256 constant NUMBER_OF_PUBLIC_INPUTS = 3;
 library ClaimArtifactVerificationKey {
     function loadVerificationKey() internal pure returns (ClaimArtifactHonk.VerificationKey memory) {
         ClaimArtifactHonk.VerificationKey memory vk = ClaimArtifactHonk.VerificationKey({
@@ -12,112 +12,112 @@ library ClaimArtifactVerificationKey {
             logCircuitSize: uint256(15),
             publicInputsSize: uint256(3),
             ql: ClaimArtifactHonk.G1Point({ 
-               x: uint256(0x3059ad32871aec13676387eb9ca86d6b7e54167e3c0d5d1821c0a36120e99c50),
-               y: uint256(0x088e6153505f3a88f0be5e7980f1bb3e71e9b1ad27b7ffa7e9c49a8c314d4b5b)
+               x: uint256(0x15ed637289b53a16fdf351871b8756f83ad7979f7a1b8bb765e7a15628324a41),
+               y: uint256(0x1520daa05c048efde997c22003bb9cbaa7c533690239010cbf1e3fd8b700fb79)
             }),
             qr: ClaimArtifactHonk.G1Point({ 
-               x: uint256(0x1658e14ddf351771c1b61200ed0f07d8a3431f5ee998253345c2ebfa82fab030),
-               y: uint256(0x053508cf4e57e4cc3cb438426006c992e5bb1489a381e8a764abb78a1ce7e0a4)
+               x: uint256(0x266702c625a87bd80477cfe82080c7c758038e376d0f4e2d861d95443cca6bcc),
+               y: uint256(0x1454ae346afc1464d5afb4d4c80fa9621f248462368d8135bb2811a1033333f9)
             }),
             qo: ClaimArtifactHonk.G1Point({ 
-               x: uint256(0x089e11e0102845e90ce492b8ec98194bc5c771be9461f3c9e39df9bcb77028c8),
-               y: uint256(0x029e9ae9d20301acfa3ff8c89e9abf5677b5373a4a0e0e3129424354793a73f6)
+               x: uint256(0x1d293c5d842dd1928bce0d6e51a3a74feb4582b6a9084de818bf54a5d8f73282),
+               y: uint256(0x2ae2311ea6de38d64da9f9c2b35f4a36d30b68ef602d7342fd437725e0672f1e)
             }),
             q4: ClaimArtifactHonk.G1Point({ 
-               x: uint256(0x1d6243a3cabd66de1e4d682f1e26f4d2c15f2c090001f96e0d22415b99351d1e),
-               y: uint256(0x06e666ab7705630ce0351ff9d924f847c5e7280014a92f5695b548306e4685a3)
+               x: uint256(0x07e824c08bb7618fa62e2d58bdaae1d4baf029c2c6a2a4aa9a48ad9ad1d8e642),
+               y: uint256(0x19014a0c84f2f6a4f3cb4c26c44133d2d3b18caff6da2111b98e3324dd79e0e0)
             }),
             qm: ClaimArtifactHonk.G1Point({ 
-               x: uint256(0x061b9301c629269a0dde613908dc1d7dbd1dd99d632fb79ce55e3b3b7e550e82),
-               y: uint256(0x2dc578c2436a25f215c93237165a7606f688559d8d6f2ea739b2b38f9e480f71)
+               x: uint256(0x00c0250c6f09611f59156e0355900a3f7da9b59448d1dde7846fd6343563a70e),
+               y: uint256(0x0b4cd5b82f3e6f8ef561cf620375e6a21a9789ff89d1586b270ca2760d089679)
             }),
             qc: ClaimArtifactHonk.G1Point({ 
-               x: uint256(0x207a7bd51f679214514e7f79004c4dbb282e29e0569ead2fb16fba2a4b19054a),
-               y: uint256(0x2892fc735b1ed956a434111b5ad25a95b60d905eda1856efdab48fd9b09fce0b)
+               x: uint256(0x03128bd8c010b6bb8a66e12d9e854c539b71b1a8a1891e30318f7cb01199f1a8),
+               y: uint256(0x0555903f08105f933ea2d3bfe5f60427f919f6491140ec6331f7add5015baa97)
             }),
             qArith: ClaimArtifactHonk.G1Point({ 
-               x: uint256(0x14f48e866623ea8a076d00792d6276ae976022d19084a49af74550a4f342bf67),
-               y: uint256(0x22d546abc5d6ba4c3a823bc3a82cb26840262dc7238174b44ef55a7630671714)
+               x: uint256(0x1e28479aeed9e3a22116e9f41d747609168b518c4141c7a2f204be0744084752),
+               y: uint256(0x00ff8669f0305c8e1f7ac45a28ac9ad663b246d7a911321f1b152d173bf078d7)
             }),
             qDeltaRange: ClaimArtifactHonk.G1Point({ 
-               x: uint256(0x2366fc0c39da0c85b30dcde59b1354c924a48e2cfba92600be8c9ca713d36f78),
-               y: uint256(0x22bcc58a2e7402df5c11f192ea0ed4cb65e4444f7379a6f482664dabaf8500c6)
+               x: uint256(0x234fe88d99db72c3e8361c5d10efe0fb4479c654f56e2517d69e9c49f2648bda),
+               y: uint256(0x182f1911c0214fd77dca735e9e833852687e2b01d21364a3cc84fa4ea2b06e67)
             }),
             qElliptic: ClaimArtifactHonk.G1Point({ 
-               x: uint256(0x2e671839c0a768a832ae38137277d4d9d6840fa13501d8d6a644f7c4f1ccbea9),
-               y: uint256(0x04619bad4fdebed7644bb8cc532acd05281f50de38d52bb288d957c5acbd2f76)
+               x: uint256(0x19e034a713b3aefc779d7973cc0d0784fb2ccd20df22541b769967cee767f720),
+               y: uint256(0x01780730753fe2306f27c2d878cce532857349900d9e6eb7fe6795ec2483a137)
             }),
             qAux: ClaimArtifactHonk.G1Point({ 
-               x: uint256(0x0bc77b3cbd4d81ecff3a1861dafe20b538932e0a9c635572fc58b5a0552bbeec),
-               y: uint256(0x2a4d8cea8299ed1730b78b3650ba70eaa229b58c925c60d9114c99c59a0acc1f)
+               x: uint256(0x20ebea99dedc2353df2ef9f743da43a274ff2241499fee6d355286a0c58bfa1b),
+               y: uint256(0x0efb93a568f83f4c71896b7895d84b92c39161fe7701bec2e665ae75dfc700ed)
             }),
             qLookup: ClaimArtifactHonk.G1Point({ 
-               x: uint256(0x28f499f1ac2bd8b0d60bba69209e40370964b59b3fcfdf268fcd0e0e4df0986a),
-               y: uint256(0x1019143cced9bc1ef8b380eab5d39341f0e6da21ec4cb293acc725b594ccec30)
+               x: uint256(0x2d7bac2649423a8dcc208dc6603b0733575c3343618e6ba2658cba7bb97d66ab),
+               y: uint256(0x0bb051091cc1010cf132804e41adc1e29fafe1c33dac9ddb9da1a7dbe5f43fe5)
             }),
             qPoseidon2External: ClaimArtifactHonk.G1Point({ 
-               x: uint256(0x2c2e286d1a7e23380ced915eb15ce19c1f3ba8e66048a4634e37341663e18fb4),
-               y: uint256(0x2fd61ad245f24ef302403ca9d5b76ef294e598ba1c6a266b1d2b24fa97aaf3f5)
+               x: uint256(0x2ca583384afe079047bf6d8aad8914ae32de2fd48a4520efc7df493cda1e7f2c),
+               y: uint256(0x0752bd80aae23e1490b3ffe7e1959af4d8f9fc45087f8faa5c6a01f1be649ea8)
             }),
             qPoseidon2Internal: ClaimArtifactHonk.G1Point({ 
-               x: uint256(0x00eeaddb69576a10742817a28eeefee98634b02195118cdbb76afe57531dd1d2),
-               y: uint256(0x29122a52aafed7490adfcbdd224a24c9cbca73f375e0a16dbd788e91307e7c08)
+               x: uint256(0x28fd60c330b7e1218c438f55fd727abddd9231b5089b0468772848048c79b9a6),
+               y: uint256(0x249cec4b01038f71c3e80cf047a7e284ab4f8b2fc3378fb18cd2ab2b6170cb21)
             }),
             s1: ClaimArtifactHonk.G1Point({ 
-               x: uint256(0x1eea7c3f90ce37a66b08c8df3cfcc562b4fd7b302e233a816623746ac730dbba),
-               y: uint256(0x25ea829fd1bfe1249c2712b17b2d32638092a0bdfded379b938d9b24ad67fdd6)
+               x: uint256(0x0121e8293ba3a4d95f23f0e1f071268381d8a8431926cdcc7d27f859051e9615),
+               y: uint256(0x1d0e99c2c56437ad9d22cadef94ae5af29382f39dce001c567bea5fbf9b9352d)
             }),
             s2: ClaimArtifactHonk.G1Point({ 
-               x: uint256(0x1a9b81f769e3ccc869c5335db5dbb390455a3678b06f67894feb990b2b637104),
-               y: uint256(0x0e113e20f769dd0ec9d29fd0360a18759cd034d73b25d5a6e528c8282a60e5ee)
+               x: uint256(0x1f4831f20a8bf345d74c2f247038dbe7c0c3ae1016ea13fd95c9a90a5253d3b8),
+               y: uint256(0x02880bd368d780c7de0b07d73b9626b60eed32806776b27f12183648027e4ff7)
             }),
             s3: ClaimArtifactHonk.G1Point({ 
-               x: uint256(0x1cfdf6876ae9783beea0b4e7fc30095fa10c8d48f189d4375c29745ea890cefc),
-               y: uint256(0x10506413ceff977e2d4b18e36816a7ba212ab0c2c98f8a12da883f4426f3eec2)
+               x: uint256(0x25912fc516c4c5baf2c075f1b61b314dd43d596c6a95c60d9d1c05f965ceaf44),
+               y: uint256(0x2be63f3414fb85fc7492169f3037e64921d94573ee0d1c1354776b85749c90a4)
             }),
             s4: ClaimArtifactHonk.G1Point({ 
-               x: uint256(0x003dc54d4542f8dc8ce05d006c45cfe4f8141b0bf9d3b3ab1650a7690cb98bd2),
-               y: uint256(0x014cb92a107315307c91c7a200807a5d960e98995d505f9320165d31a5b6d170)
+               x: uint256(0x061ce97d5f1e8f683841bdbeea526459462ae1ba35dad4421293a8d694f4385d),
+               y: uint256(0x1858e4592c0b049ed1f83f43c5e6dd9948c121663d3aa95899c25e870a851062)
             }),
             t1: ClaimArtifactHonk.G1Point({ 
-               x: uint256(0x24b8000045ca320266e83b61d1f9fe93604f9b09927d488db4fcd0334c170ae9),
-               y: uint256(0x1587e22b6c7ebc2b5b4821bc53ee9549fe44d52bec17c19c725310efa82fe389)
+               x: uint256(0x249e7625f79cb85c1372f8984bb09e8e5c49ede6b5970656e64e7e587155bc24),
+               y: uint256(0x28e8e74bd08e34198da167e07ee71ec43012de8bb9901c6adc7de657ba87b6d4)
             }),
             t2: ClaimArtifactHonk.G1Point({ 
-               x: uint256(0x299699f952a4fe646d091638243ddaf0990da3f7133aa1ac983fa38623cb30f8),
-               y: uint256(0x1be56eafa40421366463a96f2441b724f2dd1c8191c2037b9af5566a0828283a)
+               x: uint256(0x14f7cca75cb0e9b4d9761717dd4df0e5ccdc0fe6d03d1da0d953588ba9d51f35),
+               y: uint256(0x27844e16a6a5fe154a1a3147b64e8d1eebf89a8f8a24ed8cabf022b58db43ac7)
             }),
             t3: ClaimArtifactHonk.G1Point({ 
-               x: uint256(0x2412bff32bd543e84a5f7551be8ce19c2cd560c3481de110e8d229cec6fe86ab),
-               y: uint256(0x1233d8b435ca4124c21d2bee53a28344fd73aadc01d6d2dace501d72adba67b6)
+               x: uint256(0x2860f9b436ef64aaf3cc7da935218d1fc1963881262fa58734572775d529d0a2),
+               y: uint256(0x06265d3049abe3509cd30718e79d87e32f6bc8457758cd414ef838e42f9735c5)
             }),
             t4: ClaimArtifactHonk.G1Point({ 
-               x: uint256(0x2ede7e5165c07a011fff71b1c732215583c6be192b63394012750337d3594f67),
-               y: uint256(0x13361066e54a798d7d564d3b4dc9b415b2c43772f6dd0c473700262cc7f1bc65)
+               x: uint256(0x09bfc44d11fa351a2ffa19bed03d348404ab6acf5ad65353d4c84612f64a013f),
+               y: uint256(0x19e5488010a0e9c3fbd14c0869cf996a7e7933f6a2ac772b266cabd8e936c292)
             }),
             id1: ClaimArtifactHonk.G1Point({ 
-               x: uint256(0x23038603a2ba96facb75ad38c0bc61732b987c11257ffb0e9196705b6d63c0d3),
-               y: uint256(0x18616774dad14978168c56365d0d3f64f0baa9c86ea90e0ddb7926e716a99c5b)
+               x: uint256(0x13bb0acf55ab805d9041f2e8a83eed3450d3dce30d271edd77f1f4216a57d6aa),
+               y: uint256(0x04fb9b8e2d7d7313cca3d5f694f359f553c1b5d3aa5a2f5934aea2e3c8e1fa7c)
             }),
             id2: ClaimArtifactHonk.G1Point({ 
-               x: uint256(0x15c8dc59485b72e8f10e8d663601008c0e25e2cadd21ac95323fdc7accd3e72f),
-               y: uint256(0x0f20286ad310879d861fb21bf9506febe641a0731a9217abd5a9b2711d4af06a)
+               x: uint256(0x1e8f3abd01ae0cf40568f80019f00ab1d8f1c59499c2c40a0360a43995d6a420),
+               y: uint256(0x26d4083a76ffc97e3334dbdec61a7d3e10796505e1a0646ec7c629a2d5a5e8e7)
             }),
             id3: ClaimArtifactHonk.G1Point({ 
-               x: uint256(0x0709c80a1cf135ade12c93f11b099c15dfbf9dc81f63a7a78cfc28d0f4f6d685),
-               y: uint256(0x2c4f7113031fabee160e57b85ba0e311cc95819899c68e0fd1d209bdde3cccd2)
+               x: uint256(0x1e2d1b1020c15ba28046cbfe01b6adcdfe6551f96967d5d3ff0db62e88b0e1b4),
+               y: uint256(0x29280892bc2eb5c4e3e0d71b29da4b18b5fae1c5ed1404db4f0b379cbe92a156)
             }),
             id4: ClaimArtifactHonk.G1Point({ 
-               x: uint256(0x205096e08da4d1ac766a144f33e6031e8fa46d427541fd96de2aafd3cb51d023),
-               y: uint256(0x0c61dcee9b8f565f2b47f05359b0d9be4c5811915cf2dcac7926d897435b728f)
+               x: uint256(0x109a90d37bb9d30bd0c7c01404c4be759e538ff8ce832ccb51fbe820000da0ef),
+               y: uint256(0x2ca9e5bee9fe5f8ab352a3e1a4e0ea8e227f50ffc781a36e5f09e8de7dddfce9)
             }),
             lagrangeFirst: ClaimArtifactHonk.G1Point({ 
-               x: uint256(0x0000000000000000000000000000000000000000000000000000000000000001),
-               y: uint256(0x0000000000000000000000000000000000000000000000000000000000000002)
+               x: uint256(0x2501f325add0dffcd82f2e4e2d4329088eff8709dfd603918bb0d0beae5c617a),
+               y: uint256(0x064a992aa4820a261cdccae0384b18f8e6afef14a21347f1cef5e7f87bcdf72e)
             }),
             lagrangeLast: ClaimArtifactHonk.G1Point({ 
-               x: uint256(0x238bbc38f5a333cbb9642e73517f379c7388c3d9029c9aef852a7de1c11ac576),
-               y: uint256(0x2c3d48abcce2405414caea2622a08c36a4836917ee42fa981f0dae86f397e281)
+               x: uint256(0x0437631a3d9cbfac8f5f7492fcfd4f44d0fd2add2f1c6ae587bee7d24f060572),
+               y: uint256(0x0100000000000000000000000000000000000000000000000000000000000000)
             })
         });
         return vk;
@@ -126,41 +126,41 @@ library ClaimArtifactVerificationKey {
 
 pragma solidity ^0.8.27;
 
-type Fr is uint256;
+type ClaimArtifactFr is uint256;
 
-using { add as + } for Fr global;
-using { sub as - } for Fr global;
-using { mul as * } for Fr global;
-using { exp as ^ } for Fr global;
-using { notEqual as != } for Fr global;
-using { equal as == } for Fr global;
+using { add as + } for ClaimArtifactFr global;
+using { sub as - } for ClaimArtifactFr global;
+using { mul as * } for ClaimArtifactFr global;
+using { exp as ^ } for ClaimArtifactFr global;
+using { notEqual as != } for ClaimArtifactFr global;
+using { equal as == } for ClaimArtifactFr global;
 
 uint256 constant MODULUS =
     21888242871839275222246405745257275088548364400416034343698204186575808495617; // Prime field order
 
-Fr constant MINUS_ONE = Fr.wrap(MODULUS - 1);
+ClaimArtifactFr constant MINUS_ONE = ClaimArtifactFr.wrap(MODULUS - 1);
 
 // Instantiation
 library ClaimArtifactFrLib
 {
-    function from(uint256 value) internal pure returns(Fr)
+    function from(uint256 value) internal pure returns(ClaimArtifactFr)
     {
-        return Fr.wrap(value % MODULUS);
+        return ClaimArtifactFr.wrap(value % MODULUS);
     }
 
-    function fromBytes32(bytes32 value) internal pure returns(Fr)
+    function fromBytes32(bytes32 value) internal pure returns(ClaimArtifactFr)
     {
-        return Fr.wrap(uint256(value) % MODULUS);
+        return ClaimArtifactFr.wrap(uint256(value) % MODULUS);
     }
 
-    function toBytes32(Fr value) internal pure returns(bytes32)
+    function toBytes32(ClaimArtifactFr value) internal pure returns(bytes32)
     {
-        return bytes32(Fr.unwrap(value));
+        return bytes32(ClaimArtifactFr.unwrap(value));
     }
 
-    function invert(Fr value) internal view returns(Fr)
+    function invert(ClaimArtifactFr value) internal view returns(ClaimArtifactFr)
     {
-        uint256 v = Fr.unwrap(value);
+        uint256 v = ClaimArtifactFr.unwrap(value);
         uint256 result;
 
         // Call the modexp precompile to invert in the field
@@ -179,12 +179,12 @@ library ClaimArtifactFrLib
             result := mload(0x00)
         }
 
-        return Fr.wrap(result);
+        return ClaimArtifactFr.wrap(result);
     }
 
-    function pow(Fr base, uint256 v) internal view returns(Fr)
+    function pow(ClaimArtifactFr base, uint256 v) internal view returns(ClaimArtifactFr)
     {
-        uint256 b = Fr.unwrap(base);
+        uint256 b = ClaimArtifactFr.unwrap(base);
         uint256 result;
 
         // Call the modexp precompile to invert in the field
@@ -203,61 +203,61 @@ library ClaimArtifactFrLib
             result := mload(0x00)
         }
 
-        return Fr.wrap(result);
+        return ClaimArtifactFr.wrap(result);
     }
 
-    function div(Fr numerator, Fr denominator) internal view returns(Fr)
+    function div(ClaimArtifactFr numerator, ClaimArtifactFr denominator) internal view returns(ClaimArtifactFr)
     {
         return numerator * invert(denominator);
     }
 
-    function sqr(Fr value) internal pure returns (Fr) {
+    function sqr(ClaimArtifactFr value) internal pure returns (ClaimArtifactFr) {
         return value * value;
     }
 
-    function unwrap(Fr value) internal pure returns (uint256) {
-        return Fr.unwrap(value);
+    function unwrap(ClaimArtifactFr value) internal pure returns (uint256) {
+        return ClaimArtifactFr.unwrap(value);
     }
 
-    function neg(Fr value) internal pure returns (Fr) {
-        return Fr.wrap(MODULUS - Fr.unwrap(value));
+    function neg(ClaimArtifactFr value) internal pure returns (ClaimArtifactFr) {
+        return ClaimArtifactFr.wrap(MODULUS - ClaimArtifactFr.unwrap(value));
     }
 }
 
 // Free functions
-function add(Fr a, Fr b) pure returns(Fr)
+function add(ClaimArtifactFr a, ClaimArtifactFr b) pure returns(ClaimArtifactFr)
 {
-    return Fr.wrap(addmod(Fr.unwrap(a), Fr.unwrap(b), MODULUS));
+    return ClaimArtifactFr.wrap(addmod(ClaimArtifactFr.unwrap(a), ClaimArtifactFr.unwrap(b), MODULUS));
 }
 
-function mul(Fr a, Fr b) pure returns(Fr)
+function mul(ClaimArtifactFr a, ClaimArtifactFr b) pure returns(ClaimArtifactFr)
 {
-    return Fr.wrap(mulmod(Fr.unwrap(a), Fr.unwrap(b), MODULUS));
+    return ClaimArtifactFr.wrap(mulmod(ClaimArtifactFr.unwrap(a), ClaimArtifactFr.unwrap(b), MODULUS));
 }
 
-function sub(Fr a, Fr b) pure returns(Fr)
+function sub(ClaimArtifactFr a, ClaimArtifactFr b) pure returns(ClaimArtifactFr)
 {
-    return Fr.wrap(addmod(Fr.unwrap(a), MODULUS - Fr.unwrap(b), MODULUS));
+    return ClaimArtifactFr.wrap(addmod(ClaimArtifactFr.unwrap(a), MODULUS - ClaimArtifactFr.unwrap(b), MODULUS));
 }
 
-function exp(Fr base, Fr exponent) pure returns(Fr)
+function exp(ClaimArtifactFr base, ClaimArtifactFr exponent) pure returns(ClaimArtifactFr)
 {
-    if (Fr.unwrap(exponent) == 0) return Fr.wrap(1);
+    if (ClaimArtifactFr.unwrap(exponent) == 0) return ClaimArtifactFr.wrap(1);
 
-    for (uint256 i = 1; i < Fr.unwrap(exponent); i += i) {
+    for (uint256 i = 1; i < ClaimArtifactFr.unwrap(exponent); i += i) {
         base = base * base;
     }
     return base;
 }
 
-function notEqual(Fr a, Fr b) pure returns(bool)
+function notEqual(ClaimArtifactFr a, ClaimArtifactFr b) pure returns(bool)
 {
-    return Fr.unwrap(a) != Fr.unwrap(b);
+    return ClaimArtifactFr.unwrap(a) != ClaimArtifactFr.unwrap(b);
 }
 
-function equal(Fr a, Fr b) pure returns(bool)
+function equal(ClaimArtifactFr a, ClaimArtifactFr b) pure returns(bool)
 {
-    return Fr.unwrap(a) == Fr.unwrap(b);
+    return ClaimArtifactFr.unwrap(a) == ClaimArtifactFr.unwrap(b);
 }
 
 uint256 constant CONST_PROOF_SIZE_LOG_N = 28;
@@ -373,13 +373,13 @@ library ClaimArtifactHonk {
 
     struct RelationParameters {
         // challenges
-        Fr eta;
-        Fr etaTwo;
-        Fr etaThree;
-        Fr beta;
-        Fr gamma;
+        ClaimArtifactFr eta;
+        ClaimArtifactFr etaTwo;
+        ClaimArtifactFr etaThree;
+        ClaimArtifactFr beta;
+        ClaimArtifactFr gamma;
         // derived
-        Fr publicInputsDelta;
+        ClaimArtifactFr publicInputsDelta;
     }
 
 
@@ -396,11 +396,11 @@ library ClaimArtifactHonk {
         ClaimArtifactHonk.G1ProofPoint lookupReadTags;
         ClaimArtifactHonk.G1ProofPoint lookupInverses;
         // Sumcheck
-        Fr[BATCHED_RELATION_PARTIAL_LENGTH][CONST_PROOF_SIZE_LOG_N] sumcheckUnivariates;
-        Fr[NUMBER_OF_ENTITIES] sumcheckEvaluations;
+        ClaimArtifactFr[BATCHED_RELATION_PARTIAL_LENGTH][CONST_PROOF_SIZE_LOG_N] sumcheckUnivariates;
+        ClaimArtifactFr[NUMBER_OF_ENTITIES] sumcheckEvaluations;
         // Shplemini
         ClaimArtifactHonk.G1ProofPoint[CONST_PROOF_SIZE_LOG_N - 1] geminiFoldComms;
-        Fr[CONST_PROOF_SIZE_LOG_N] geminiAEvaluations;
+        ClaimArtifactFr[CONST_PROOF_SIZE_LOG_N] geminiAEvaluations;
         ClaimArtifactHonk.G1ProofPoint shplonkQ;
         ClaimArtifactHonk.G1ProofPoint kzgQuotient;
     }
@@ -410,25 +410,25 @@ library ClaimArtifactHonk {
 struct Transcript {
     // Oink
     ClaimArtifactHonk.RelationParameters relationParameters;
-    Fr[NUMBER_OF_ALPHAS] alphas;
-    Fr[CONST_PROOF_SIZE_LOG_N] gateChallenges;
+    ClaimArtifactFr[NUMBER_OF_ALPHAS] alphas;
+    ClaimArtifactFr[CONST_PROOF_SIZE_LOG_N] gateChallenges;
     // Sumcheck
-    Fr[CONST_PROOF_SIZE_LOG_N] sumCheckUChallenges;
+    ClaimArtifactFr[CONST_PROOF_SIZE_LOG_N] sumCheckUChallenges;
     // Gemini
-    Fr rho;
-    Fr geminiR;
+    ClaimArtifactFr rho;
+    ClaimArtifactFr geminiR;
     // Shplonk
-    Fr shplonkNu;
-    Fr shplonkZ;
+    ClaimArtifactFr shplonkNu;
+    ClaimArtifactFr shplonkZ;
 }
 
-library ClaimArtifactTranscriptLib {
+library TranscriptLib {
     function generateTranscript(ClaimArtifactHonk.Proof memory proof, bytes32[] calldata publicInputs, uint256 circuitSize, uint256 publicInputsSize, uint256 pubInputsOffset)
         internal
         pure
         returns (Transcript memory t)
     {
-        Fr previousChallenge;
+        ClaimArtifactFr previousChallenge;
         (t.relationParameters, previousChallenge) =
             generateRelationParametersChallenges(proof, publicInputs, circuitSize, publicInputsSize, pubInputsOffset, previousChallenge);
 
@@ -449,8 +449,8 @@ library ClaimArtifactTranscriptLib {
         return t;
     }
 
-    function splitChallenge(Fr challenge) internal pure returns (Fr first, Fr second) {
-        uint256 challengeU256 = uint256(Fr.unwrap(challenge));
+    function splitChallenge(ClaimArtifactFr challenge) internal pure returns (ClaimArtifactFr first, ClaimArtifactFr second) {
+        uint256 challengeU256 = uint256(ClaimArtifactFr.unwrap(challenge));
         uint256 lo = challengeU256 & 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
         uint256 hi = challengeU256 >> 128;
         first = ClaimArtifactFrLib.fromBytes32(bytes32(lo));
@@ -463,8 +463,8 @@ library ClaimArtifactTranscriptLib {
         uint256 circuitSize,
         uint256 publicInputsSize,
         uint256 pubInputsOffset,
-        Fr previousChallenge
-    ) internal pure returns (ClaimArtifactHonk.RelationParameters memory rp, Fr nextPreviousChallenge) {
+        ClaimArtifactFr previousChallenge
+    ) internal pure returns (ClaimArtifactHonk.RelationParameters memory rp, ClaimArtifactFr nextPreviousChallenge) {
         (rp.eta, rp.etaTwo, rp.etaThree, previousChallenge) =
             generateEtaChallenge(proof, publicInputs, circuitSize, publicInputsSize, pubInputsOffset);
 
@@ -475,7 +475,7 @@ library ClaimArtifactTranscriptLib {
     function generateEtaChallenge(ClaimArtifactHonk.Proof memory proof, bytes32[] calldata publicInputs, uint256 circuitSize, uint256 publicInputsSize, uint256 pubInputsOffset)
         internal
         pure
-        returns (Fr eta, Fr etaTwo, Fr etaThree, Fr previousChallenge)
+        returns (ClaimArtifactFr eta, ClaimArtifactFr etaTwo, ClaimArtifactFr etaThree, ClaimArtifactFr previousChallenge)
     {
         bytes32[] memory round0 = new bytes32[](3 + publicInputsSize + 12);
         round0[0] = bytes32(circuitSize);
@@ -502,15 +502,15 @@ library ClaimArtifactTranscriptLib {
 
         previousChallenge = ClaimArtifactFrLib.fromBytes32(keccak256(abi.encodePacked(round0)));
         (eta, etaTwo) = splitChallenge(previousChallenge);
-        previousChallenge = ClaimArtifactFrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(previousChallenge))));
-        Fr unused;
+        previousChallenge = ClaimArtifactFrLib.fromBytes32(keccak256(abi.encodePacked(ClaimArtifactFr.unwrap(previousChallenge))));
+        ClaimArtifactFr unused;
         (etaThree, unused) = splitChallenge(previousChallenge);
     }
 
-    function generateBetaAndGammaChallenges(Fr previousChallenge, ClaimArtifactHonk.Proof memory proof)
+    function generateBetaAndGammaChallenges(ClaimArtifactFr previousChallenge, ClaimArtifactHonk.Proof memory proof)
         internal
         pure
-        returns (Fr beta, Fr gamma, Fr nextPreviousChallenge)
+        returns (ClaimArtifactFr beta, ClaimArtifactFr gamma, ClaimArtifactFr nextPreviousChallenge)
     {
         bytes32[13] memory round1;
         round1[0] = ClaimArtifactFrLib.toBytes32(previousChallenge);
@@ -532,14 +532,14 @@ library ClaimArtifactTranscriptLib {
     }
 
     // Alpha challenges non-linearise the gate contributions
-    function generateAlphaChallenges(Fr previousChallenge, ClaimArtifactHonk.Proof memory proof)
+    function generateAlphaChallenges(ClaimArtifactFr previousChallenge, ClaimArtifactHonk.Proof memory proof)
         internal
         pure
-        returns (Fr[NUMBER_OF_ALPHAS] memory alphas, Fr nextPreviousChallenge)
+        returns (ClaimArtifactFr[NUMBER_OF_ALPHAS] memory alphas, ClaimArtifactFr nextPreviousChallenge)
     {
         // Generate the original sumcheck alpha 0 by hashing zPerm and zLookup
         uint256[9] memory alpha0;
-        alpha0[0] = Fr.unwrap(previousChallenge);
+        alpha0[0] = ClaimArtifactFr.unwrap(previousChallenge);
         alpha0[1] = proof.lookupInverses.x_0;
         alpha0[2] = proof.lookupInverses.x_1;
         alpha0[3] = proof.lookupInverses.y_0;
@@ -553,54 +553,54 @@ library ClaimArtifactTranscriptLib {
         (alphas[0], alphas[1]) = splitChallenge(nextPreviousChallenge);
 
         for (uint256 i = 1; i < NUMBER_OF_ALPHAS / 2; i++) {
-            nextPreviousChallenge = ClaimArtifactFrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(nextPreviousChallenge))));
+            nextPreviousChallenge = ClaimArtifactFrLib.fromBytes32(keccak256(abi.encodePacked(ClaimArtifactFr.unwrap(nextPreviousChallenge))));
             (alphas[2 * i], alphas[2 * i + 1]) = splitChallenge(nextPreviousChallenge);
         }
         if (((NUMBER_OF_ALPHAS & 1) == 1) && (NUMBER_OF_ALPHAS > 2)) {
-            nextPreviousChallenge = ClaimArtifactFrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(nextPreviousChallenge))));
-            Fr unused;
+            nextPreviousChallenge = ClaimArtifactFrLib.fromBytes32(keccak256(abi.encodePacked(ClaimArtifactFr.unwrap(nextPreviousChallenge))));
+            ClaimArtifactFr unused;
             (alphas[NUMBER_OF_ALPHAS - 1], unused) = splitChallenge(nextPreviousChallenge);
         }
     }
 
-    function generateGateChallenges(Fr previousChallenge)
+    function generateGateChallenges(ClaimArtifactFr previousChallenge)
         internal
         pure
-        returns (Fr[CONST_PROOF_SIZE_LOG_N] memory gateChallenges, Fr nextPreviousChallenge)
+        returns (ClaimArtifactFr[CONST_PROOF_SIZE_LOG_N] memory gateChallenges, ClaimArtifactFr nextPreviousChallenge)
     {
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
-            previousChallenge = ClaimArtifactFrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(previousChallenge))));
-            Fr unused;
+            previousChallenge = ClaimArtifactFrLib.fromBytes32(keccak256(abi.encodePacked(ClaimArtifactFr.unwrap(previousChallenge))));
+            ClaimArtifactFr unused;
             (gateChallenges[i], unused) = splitChallenge(previousChallenge);
         }
         nextPreviousChallenge = previousChallenge;
     }
 
-    function generateSumcheckChallenges(ClaimArtifactHonk.Proof memory proof, Fr prevChallenge)
+    function generateSumcheckChallenges(ClaimArtifactHonk.Proof memory proof, ClaimArtifactFr prevChallenge)
         internal
         pure
-        returns (Fr[CONST_PROOF_SIZE_LOG_N] memory sumcheckChallenges, Fr nextPreviousChallenge)
+        returns (ClaimArtifactFr[CONST_PROOF_SIZE_LOG_N] memory sumcheckChallenges, ClaimArtifactFr nextPreviousChallenge)
     {
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
-            Fr[BATCHED_RELATION_PARTIAL_LENGTH + 1] memory univariateChal;
+            ClaimArtifactFr[BATCHED_RELATION_PARTIAL_LENGTH + 1] memory univariateChal;
             univariateChal[0] = prevChallenge;
 
             for (uint256 j = 0; j < BATCHED_RELATION_PARTIAL_LENGTH; j++) {
                 univariateChal[j + 1] = proof.sumcheckUnivariates[i][j];
             }
             prevChallenge = ClaimArtifactFrLib.fromBytes32(keccak256(abi.encodePacked(univariateChal)));
-            Fr unused;
+            ClaimArtifactFr unused;
             (sumcheckChallenges[i], unused) = splitChallenge(prevChallenge);
         }
         nextPreviousChallenge = prevChallenge;
     }
 
-    function generateRhoChallenge(ClaimArtifactHonk.Proof memory proof, Fr prevChallenge)
+    function generateRhoChallenge(ClaimArtifactHonk.Proof memory proof, ClaimArtifactFr prevChallenge)
         internal
         pure
-        returns (Fr rho, Fr nextPreviousChallenge)
+        returns (ClaimArtifactFr rho, ClaimArtifactFr nextPreviousChallenge)
     {
-        Fr[NUMBER_OF_ENTITIES + 1] memory rhoChallengeElements;
+        ClaimArtifactFr[NUMBER_OF_ENTITIES + 1] memory rhoChallengeElements;
         rhoChallengeElements[0] = prevChallenge;
 
         for (uint256 i = 0; i < NUMBER_OF_ENTITIES; i++) {
@@ -608,17 +608,17 @@ library ClaimArtifactTranscriptLib {
         }
 
         nextPreviousChallenge = ClaimArtifactFrLib.fromBytes32(keccak256(abi.encodePacked(rhoChallengeElements)));
-        Fr unused;
+        ClaimArtifactFr unused;
         (rho, unused) = splitChallenge(nextPreviousChallenge);
     }
 
-    function generateGeminiRChallenge(ClaimArtifactHonk.Proof memory proof, Fr prevChallenge)
+    function generateGeminiRChallenge(ClaimArtifactHonk.Proof memory proof, ClaimArtifactFr prevChallenge)
         internal
         pure
-        returns (Fr geminiR, Fr nextPreviousChallenge)
+        returns (ClaimArtifactFr geminiR, ClaimArtifactFr nextPreviousChallenge)
     {
         uint256[(CONST_PROOF_SIZE_LOG_N - 1) * 4 + 1] memory gR;
-        gR[0] = Fr.unwrap(prevChallenge);
+        gR[0] = ClaimArtifactFr.unwrap(prevChallenge);
 
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; i++) {
             gR[1 + i * 4] = proof.geminiFoldComms[i].x_0;
@@ -628,34 +628,34 @@ library ClaimArtifactTranscriptLib {
         }
 
         nextPreviousChallenge = ClaimArtifactFrLib.fromBytes32(keccak256(abi.encodePacked(gR)));
-        Fr unused;
+        ClaimArtifactFr unused;
         (geminiR, unused) = splitChallenge(nextPreviousChallenge);
     }
 
-    function generateShplonkNuChallenge(ClaimArtifactHonk.Proof memory proof, Fr prevChallenge)
+    function generateShplonkNuChallenge(ClaimArtifactHonk.Proof memory proof, ClaimArtifactFr prevChallenge)
         internal
         pure
-        returns (Fr shplonkNu, Fr nextPreviousChallenge)
+        returns (ClaimArtifactFr shplonkNu, ClaimArtifactFr nextPreviousChallenge)
     {
         uint256[(CONST_PROOF_SIZE_LOG_N) + 1] memory shplonkNuChallengeElements;
-        shplonkNuChallengeElements[0] = Fr.unwrap(prevChallenge);
+        shplonkNuChallengeElements[0] = ClaimArtifactFr.unwrap(prevChallenge);
 
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
-            shplonkNuChallengeElements[i + 1] = Fr.unwrap(proof.geminiAEvaluations[i]);
+            shplonkNuChallengeElements[i + 1] = ClaimArtifactFr.unwrap(proof.geminiAEvaluations[i]);
         }
 
         nextPreviousChallenge = ClaimArtifactFrLib.fromBytes32(keccak256(abi.encodePacked(shplonkNuChallengeElements)));
-        Fr unused;
+        ClaimArtifactFr unused;
         (shplonkNu, unused) = splitChallenge(nextPreviousChallenge);
     }
 
-    function generateShplonkZChallenge(ClaimArtifactHonk.Proof memory proof, Fr prevChallenge)
+    function generateShplonkZChallenge(ClaimArtifactHonk.Proof memory proof, ClaimArtifactFr prevChallenge)
         internal
         pure
-        returns (Fr shplonkZ, Fr nextPreviousChallenge)
+        returns (ClaimArtifactFr shplonkZ, ClaimArtifactFr nextPreviousChallenge)
     {
         uint256[5] memory shplonkZChallengeElements;
-        shplonkZChallengeElements[0] = Fr.unwrap(prevChallenge);
+        shplonkZChallengeElements[0] = ClaimArtifactFr.unwrap(prevChallenge);
 
         shplonkZChallengeElements[1] = proof.shplonkQ.x_0;
         shplonkZChallengeElements[2] = proof.shplonkQ.x_1;
@@ -663,7 +663,7 @@ library ClaimArtifactTranscriptLib {
         shplonkZChallengeElements[4] = proof.shplonkQ.y_1;
 
         nextPreviousChallenge = ClaimArtifactFrLib.fromBytes32(keccak256(abi.encodePacked(shplonkZChallengeElements)));
-        Fr unused;
+        ClaimArtifactFr unused;
         (shplonkZ, unused) = splitChallenge(nextPreviousChallenge);
     }
 
@@ -717,9 +717,9 @@ library ClaimArtifactTranscriptLib {
 }
 
 
-// Fr utility
+// ClaimArtifactFr utility
 
-function bytesToFr(bytes calldata proofSection) pure returns (Fr scalar) {
+function bytesToFr(bytes calldata proofSection) pure returns (ClaimArtifactFr scalar) {
     require(proofSection.length == 0x20, "invalid bytes scalar");
     scalar = ClaimArtifactFrLib.fromBytes32(bytes32(proofSection));
 }
@@ -768,16 +768,16 @@ function negateInplace(ClaimArtifactHonk.G1Point memory point) pure returns (Cla
     }
 
 
-library ClaimArtifactRelationsLib {
-    Fr internal constant GRUMPKIN_CURVE_B_PARAMETER_NEGATED = Fr.wrap(17); // -(-17)
+library RelationsLib {
+    ClaimArtifactFr internal constant GRUMPKIN_CURVE_B_PARAMETER_NEGATED = ClaimArtifactFr.wrap(17); // -(-17)
 
     function accumulateRelationEvaluations(
-         Fr[NUMBER_OF_ENTITIES] memory purportedEvaluations,
+         ClaimArtifactFr[NUMBER_OF_ENTITIES] memory purportedEvaluations,
         ClaimArtifactHonk.RelationParameters memory rp,
-        Fr[NUMBER_OF_ALPHAS] memory alphas,
-        Fr powPartialEval
-    ) internal pure returns (Fr accumulator) {
-        Fr[NUMBER_OF_SUBRELATIONS] memory evaluations;
+        ClaimArtifactFr[NUMBER_OF_ALPHAS] memory alphas,
+        ClaimArtifactFr powPartialEval
+    ) internal pure returns (ClaimArtifactFr accumulator) {
+        ClaimArtifactFr[NUMBER_OF_SUBRELATIONS] memory evaluations;
 
         // Accumulate all relations in Ultra Honk - each with varying number of subrelations
         accumulateArithmeticRelation(purportedEvaluations, evaluations, powPartialEval);
@@ -797,7 +797,7 @@ library ClaimArtifactRelationsLib {
      * the relation checking code being cluttered with uint256 type casting, which is often a different colour in code
      * editors, and thus is noisy.
      */
-    function wire(Fr[NUMBER_OF_ENTITIES] memory p, WIRE _wire) internal pure returns (Fr) {
+    function wire(ClaimArtifactFr[NUMBER_OF_ENTITIES] memory p, WIRE _wire) internal pure returns (ClaimArtifactFr) {
         return p[uint256(_wire)];
     }
 
@@ -807,19 +807,19 @@ library ClaimArtifactRelationsLib {
      *
      */
     function accumulateArithmeticRelation(
-        Fr[NUMBER_OF_ENTITIES] memory p,
-        Fr[NUMBER_OF_SUBRELATIONS] memory evals,
-        Fr domainSep
+        ClaimArtifactFr[NUMBER_OF_ENTITIES] memory p,
+        ClaimArtifactFr[NUMBER_OF_SUBRELATIONS] memory evals,
+        ClaimArtifactFr domainSep
     ) internal pure {
         // Relation 0
-        Fr q_arith = wire(p, WIRE.Q_ARITH);
+        ClaimArtifactFr q_arith = wire(p, WIRE.Q_ARITH);
         {
-            Fr neg_half = Fr.wrap(NEG_HALF_MODULO_P);
+            ClaimArtifactFr neg_half = ClaimArtifactFr.wrap(NEG_HALF_MODULO_P);
 
-            Fr accum = (q_arith - Fr.wrap(3)) * (wire(p, WIRE.Q_M) * wire(p, WIRE.W_R) * wire(p, WIRE.W_L)) * neg_half;
+            ClaimArtifactFr accum = (q_arith - ClaimArtifactFr.wrap(3)) * (wire(p, WIRE.Q_M) * wire(p, WIRE.W_R) * wire(p, WIRE.W_L)) * neg_half;
             accum = accum + (wire(p, WIRE.Q_L) * wire(p, WIRE.W_L)) + (wire(p, WIRE.Q_R) * wire(p, WIRE.W_R))
                 + (wire(p, WIRE.Q_O) * wire(p, WIRE.W_O)) + (wire(p, WIRE.Q_4) * wire(p, WIRE.W_4)) + wire(p, WIRE.Q_C);
-            accum = accum + (q_arith - Fr.wrap(1)) * wire(p, WIRE.W_4_SHIFT);
+            accum = accum + (q_arith - ClaimArtifactFr.wrap(1)) * wire(p, WIRE.W_4_SHIFT);
             accum = accum * q_arith;
             accum = accum * domainSep;
             evals[0] = accum;
@@ -827,9 +827,9 @@ library ClaimArtifactRelationsLib {
 
         // Relation 1
         {
-            Fr accum = wire(p, WIRE.W_L) + wire(p, WIRE.W_4) - wire(p, WIRE.W_L_SHIFT) + wire(p, WIRE.Q_M);
-            accum = accum * (q_arith - Fr.wrap(2));
-            accum = accum * (q_arith - Fr.wrap(1));
+            ClaimArtifactFr accum = wire(p, WIRE.W_L) + wire(p, WIRE.W_4) - wire(p, WIRE.W_L_SHIFT) + wire(p, WIRE.Q_M);
+            accum = accum * (q_arith - ClaimArtifactFr.wrap(2));
+            accum = accum * (q_arith - ClaimArtifactFr.wrap(1));
             accum = accum * q_arith;
             accum = accum * domainSep;
             evals[1] = accum;
@@ -837,16 +837,16 @@ library ClaimArtifactRelationsLib {
     }
 
     function accumulatePermutationRelation(
-        Fr[NUMBER_OF_ENTITIES] memory p,
+        ClaimArtifactFr[NUMBER_OF_ENTITIES] memory p,
         ClaimArtifactHonk.RelationParameters memory rp,
-        Fr[NUMBER_OF_SUBRELATIONS] memory evals,
-        Fr domainSep
+        ClaimArtifactFr[NUMBER_OF_SUBRELATIONS] memory evals,
+        ClaimArtifactFr domainSep
     ) internal pure {
-        Fr grand_product_numerator;
-        Fr grand_product_denominator;
+        ClaimArtifactFr grand_product_numerator;
+        ClaimArtifactFr grand_product_denominator;
 
         {
-            Fr num = wire(p, WIRE.W_L) + wire(p, WIRE.ID_1) * rp.beta + rp.gamma;
+            ClaimArtifactFr num = wire(p, WIRE.W_L) + wire(p, WIRE.ID_1) * rp.beta + rp.gamma;
             num = num * (wire(p, WIRE.W_R) + wire(p, WIRE.ID_2) * rp.beta + rp.gamma);
             num = num * (wire(p, WIRE.W_O) + wire(p, WIRE.ID_3) * rp.beta + rp.gamma);
             num = num * (wire(p, WIRE.W_4) + wire(p, WIRE.ID_4) * rp.beta + rp.gamma);
@@ -854,7 +854,7 @@ library ClaimArtifactRelationsLib {
             grand_product_numerator = num;
         }
         {
-            Fr den = wire(p, WIRE.W_L) + wire(p, WIRE.SIGMA_1) * rp.beta + rp.gamma;
+            ClaimArtifactFr den = wire(p, WIRE.W_L) + wire(p, WIRE.SIGMA_1) * rp.beta + rp.gamma;
             den = den * (wire(p, WIRE.W_R) + wire(p, WIRE.SIGMA_2) * rp.beta + rp.gamma);
             den = den * (wire(p, WIRE.W_O) + wire(p, WIRE.SIGMA_3) * rp.beta + rp.gamma);
             den = den * (wire(p, WIRE.W_4) + wire(p, WIRE.SIGMA_4) * rp.beta + rp.gamma);
@@ -864,7 +864,7 @@ library ClaimArtifactRelationsLib {
 
         // Contribution 2
         {
-            Fr acc = (wire(p, WIRE.Z_PERM) + wire(p, WIRE.LAGRANGE_FIRST)) * grand_product_numerator;
+            ClaimArtifactFr acc = (wire(p, WIRE.Z_PERM) + wire(p, WIRE.LAGRANGE_FIRST)) * grand_product_numerator;
 
             acc = acc
                 - (
@@ -877,19 +877,19 @@ library ClaimArtifactRelationsLib {
 
         // Contribution 3
         {
-            Fr acc = (wire(p, WIRE.LAGRANGE_LAST) * wire(p, WIRE.Z_PERM_SHIFT)) * domainSep;
+            ClaimArtifactFr acc = (wire(p, WIRE.LAGRANGE_LAST) * wire(p, WIRE.Z_PERM_SHIFT)) * domainSep;
             evals[3] = acc;
         }
     }
 
     function accumulateLogDerivativeLookupRelation(
-        Fr[NUMBER_OF_ENTITIES] memory p,
+        ClaimArtifactFr[NUMBER_OF_ENTITIES] memory p,
         ClaimArtifactHonk.RelationParameters memory rp,
-        Fr[NUMBER_OF_SUBRELATIONS] memory evals,
-        Fr domainSep
+        ClaimArtifactFr[NUMBER_OF_SUBRELATIONS] memory evals,
+        ClaimArtifactFr domainSep
     ) internal pure {
-        Fr write_term;
-        Fr read_term;
+        ClaimArtifactFr write_term;
+        ClaimArtifactFr read_term;
 
         // Calculate the write term (the table accumulation)
         {
@@ -899,49 +899,49 @@ library ClaimArtifactRelationsLib {
 
         // Calculate the write term
         {
-            Fr derived_entry_1 = wire(p, WIRE.W_L) + rp.gamma + (wire(p, WIRE.Q_R) * wire(p, WIRE.W_L_SHIFT));
-            Fr derived_entry_2 = wire(p, WIRE.W_R) + wire(p, WIRE.Q_M) * wire(p, WIRE.W_R_SHIFT);
-            Fr derived_entry_3 = wire(p, WIRE.W_O) + wire(p, WIRE.Q_C) * wire(p, WIRE.W_O_SHIFT);
+            ClaimArtifactFr derived_entry_1 = wire(p, WIRE.W_L) + rp.gamma + (wire(p, WIRE.Q_R) * wire(p, WIRE.W_L_SHIFT));
+            ClaimArtifactFr derived_entry_2 = wire(p, WIRE.W_R) + wire(p, WIRE.Q_M) * wire(p, WIRE.W_R_SHIFT);
+            ClaimArtifactFr derived_entry_3 = wire(p, WIRE.W_O) + wire(p, WIRE.Q_C) * wire(p, WIRE.W_O_SHIFT);
 
             read_term = derived_entry_1 + (derived_entry_2 * rp.eta) + (derived_entry_3 * rp.etaTwo)
                 + (wire(p, WIRE.Q_O) * rp.etaThree);
         }
 
-        Fr read_inverse = wire(p, WIRE.LOOKUP_INVERSES) * write_term;
-        Fr write_inverse = wire(p, WIRE.LOOKUP_INVERSES) * read_term;
+        ClaimArtifactFr read_inverse = wire(p, WIRE.LOOKUP_INVERSES) * write_term;
+        ClaimArtifactFr write_inverse = wire(p, WIRE.LOOKUP_INVERSES) * read_term;
 
-        Fr inverse_exists_xor = wire(p, WIRE.LOOKUP_READ_TAGS) + wire(p, WIRE.Q_LOOKUP)
+        ClaimArtifactFr inverse_exists_xor = wire(p, WIRE.LOOKUP_READ_TAGS) + wire(p, WIRE.Q_LOOKUP)
             - (wire(p, WIRE.LOOKUP_READ_TAGS) * wire(p, WIRE.Q_LOOKUP));
 
         // Inverse calculated correctly relation
-        Fr accumulatorNone = read_term * write_term * wire(p, WIRE.LOOKUP_INVERSES) - inverse_exists_xor;
+        ClaimArtifactFr accumulatorNone = read_term * write_term * wire(p, WIRE.LOOKUP_INVERSES) - inverse_exists_xor;
         accumulatorNone = accumulatorNone * domainSep;
 
         // Inverse
-        Fr accumulatorOne = wire(p, WIRE.Q_LOOKUP) * read_inverse - wire(p, WIRE.LOOKUP_READ_COUNTS) * write_inverse;
+        ClaimArtifactFr accumulatorOne = wire(p, WIRE.Q_LOOKUP) * read_inverse - wire(p, WIRE.LOOKUP_READ_COUNTS) * write_inverse;
 
         evals[4] = accumulatorNone;
         evals[5] = accumulatorOne;
     }
 
     function accumulateDeltaRangeRelation(
-        Fr[NUMBER_OF_ENTITIES] memory p,
-        Fr[NUMBER_OF_SUBRELATIONS] memory evals,
-        Fr domainSep
+        ClaimArtifactFr[NUMBER_OF_ENTITIES] memory p,
+        ClaimArtifactFr[NUMBER_OF_SUBRELATIONS] memory evals,
+        ClaimArtifactFr domainSep
     ) internal pure {
-        Fr minus_one = Fr.wrap(0) - Fr.wrap(1);
-        Fr minus_two = Fr.wrap(0) - Fr.wrap(2);
-        Fr minus_three = Fr.wrap(0) - Fr.wrap(3);
+        ClaimArtifactFr minus_one = ClaimArtifactFr.wrap(0) - ClaimArtifactFr.wrap(1);
+        ClaimArtifactFr minus_two = ClaimArtifactFr.wrap(0) - ClaimArtifactFr.wrap(2);
+        ClaimArtifactFr minus_three = ClaimArtifactFr.wrap(0) - ClaimArtifactFr.wrap(3);
 
         // Compute wire differences
-        Fr delta_1 = wire(p, WIRE.W_R) - wire(p, WIRE.W_L);
-        Fr delta_2 = wire(p, WIRE.W_O) - wire(p, WIRE.W_R);
-        Fr delta_3 = wire(p, WIRE.W_4) - wire(p, WIRE.W_O);
-        Fr delta_4 = wire(p, WIRE.W_L_SHIFT) - wire(p, WIRE.W_4);
+        ClaimArtifactFr delta_1 = wire(p, WIRE.W_R) - wire(p, WIRE.W_L);
+        ClaimArtifactFr delta_2 = wire(p, WIRE.W_O) - wire(p, WIRE.W_R);
+        ClaimArtifactFr delta_3 = wire(p, WIRE.W_4) - wire(p, WIRE.W_O);
+        ClaimArtifactFr delta_4 = wire(p, WIRE.W_L_SHIFT) - wire(p, WIRE.W_4);
 
         // Contribution 6
         {
-            Fr acc = delta_1;
+            ClaimArtifactFr acc = delta_1;
             acc = acc * (delta_1 + minus_one);
             acc = acc * (delta_1 + minus_two);
             acc = acc * (delta_1 + minus_three);
@@ -952,7 +952,7 @@ library ClaimArtifactRelationsLib {
 
         // Contribution 7
         {
-            Fr acc = delta_2;
+            ClaimArtifactFr acc = delta_2;
             acc = acc * (delta_2 + minus_one);
             acc = acc * (delta_2 + minus_two);
             acc = acc * (delta_2 + minus_three);
@@ -963,7 +963,7 @@ library ClaimArtifactRelationsLib {
 
         // Contribution 8
         {
-            Fr acc = delta_3;
+            ClaimArtifactFr acc = delta_3;
             acc = acc * (delta_3 + minus_one);
             acc = acc * (delta_3 + minus_two);
             acc = acc * (delta_3 + minus_three);
@@ -974,7 +974,7 @@ library ClaimArtifactRelationsLib {
 
         // Contribution 9
         {
-            Fr acc = delta_4;
+            ClaimArtifactFr acc = delta_4;
             acc = acc * (delta_4 + minus_one);
             acc = acc * (delta_4 + minus_two);
             acc = acc * (delta_4 + minus_three);
@@ -986,20 +986,20 @@ library ClaimArtifactRelationsLib {
 
     struct EllipticParams {
         // Points
-        Fr x_1;
-        Fr y_1;
-        Fr x_2;
-        Fr y_2;
-        Fr y_3;
-        Fr x_3;
+        ClaimArtifactFr x_1;
+        ClaimArtifactFr y_1;
+        ClaimArtifactFr x_2;
+        ClaimArtifactFr y_2;
+        ClaimArtifactFr y_3;
+        ClaimArtifactFr x_3;
         // push accumulators into memory
-        Fr x_double_identity;
+        ClaimArtifactFr x_double_identity;
     }
 
     function accumulateEllipticRelation(
-        Fr[NUMBER_OF_ENTITIES] memory p,
-        Fr[NUMBER_OF_SUBRELATIONS] memory evals,
-        Fr domainSep
+        ClaimArtifactFr[NUMBER_OF_ENTITIES] memory p,
+        ClaimArtifactFr[NUMBER_OF_SUBRELATIONS] memory evals,
+        ClaimArtifactFr domainSep
     ) internal pure {
         EllipticParams memory ep;
         ep.x_1 = wire(p, WIRE.W_R);
@@ -1010,96 +1010,96 @@ library ClaimArtifactRelationsLib {
         ep.y_3 = wire(p, WIRE.W_O_SHIFT);
         ep.x_3 = wire(p, WIRE.W_R_SHIFT);
 
-        Fr q_sign = wire(p, WIRE.Q_L);
-        Fr q_is_double = wire(p, WIRE.Q_M);
+        ClaimArtifactFr q_sign = wire(p, WIRE.Q_L);
+        ClaimArtifactFr q_is_double = wire(p, WIRE.Q_M);
 
         // Contribution 10 point addition, x-coordinate check
         // q_elliptic * (x3 + x2 + x1)(x2 - x1)(x2 - x1) - y2^2 - y1^2 + 2(y2y1)*q_sign = 0
-        Fr x_diff = (ep.x_2 - ep.x_1);
-        Fr y1_sqr = (ep.y_1 * ep.y_1);
+        ClaimArtifactFr x_diff = (ep.x_2 - ep.x_1);
+        ClaimArtifactFr y1_sqr = (ep.y_1 * ep.y_1);
         {
             // Move to top
-            Fr partialEval = domainSep;
+            ClaimArtifactFr partialEval = domainSep;
 
-            Fr y2_sqr = (ep.y_2 * ep.y_2);
-            Fr y1y2 = ep.y_1 * ep.y_2 * q_sign;
-            Fr x_add_identity = (ep.x_3 + ep.x_2 + ep.x_1);
+            ClaimArtifactFr y2_sqr = (ep.y_2 * ep.y_2);
+            ClaimArtifactFr y1y2 = ep.y_1 * ep.y_2 * q_sign;
+            ClaimArtifactFr x_add_identity = (ep.x_3 + ep.x_2 + ep.x_1);
             x_add_identity = x_add_identity * x_diff * x_diff;
             x_add_identity = x_add_identity - y2_sqr - y1_sqr + y1y2 + y1y2;
 
-            evals[10] = x_add_identity * partialEval * wire(p, WIRE.Q_ELLIPTIC) * (Fr.wrap(1) - q_is_double);
+            evals[10] = x_add_identity * partialEval * wire(p, WIRE.Q_ELLIPTIC) * (ClaimArtifactFr.wrap(1) - q_is_double);
         }
 
         // Contribution 11 point addition, x-coordinate check
         // q_elliptic * (q_sign * y1 + y3)(x2 - x1) + (x3 - x1)(y2 - q_sign * y1) = 0
         {
-            Fr y1_plus_y3 = ep.y_1 + ep.y_3;
-            Fr y_diff = ep.y_2 * q_sign - ep.y_1;
-            Fr y_add_identity = y1_plus_y3 * x_diff + (ep.x_3 - ep.x_1) * y_diff;
-            evals[11] = y_add_identity * domainSep * wire(p, WIRE.Q_ELLIPTIC) * (Fr.wrap(1) - q_is_double);
+            ClaimArtifactFr y1_plus_y3 = ep.y_1 + ep.y_3;
+            ClaimArtifactFr y_diff = ep.y_2 * q_sign - ep.y_1;
+            ClaimArtifactFr y_add_identity = y1_plus_y3 * x_diff + (ep.x_3 - ep.x_1) * y_diff;
+            evals[11] = y_add_identity * domainSep * wire(p, WIRE.Q_ELLIPTIC) * (ClaimArtifactFr.wrap(1) - q_is_double);
         }
 
         // Contribution 10 point doubling, x-coordinate check
         // (x3 + x1 + x1) (4y1*y1) - 9 * x1 * x1 * x1 * x1 = 0
         // N.B. we're using the equivalence x1*x1*x1 === y1*y1 - curve_b to reduce degree by 1
         {
-            Fr x_pow_4 = (y1_sqr + GRUMPKIN_CURVE_B_PARAMETER_NEGATED) * ep.x_1;
-            Fr y1_sqr_mul_4 = y1_sqr + y1_sqr;
+            ClaimArtifactFr x_pow_4 = (y1_sqr + GRUMPKIN_CURVE_B_PARAMETER_NEGATED) * ep.x_1;
+            ClaimArtifactFr y1_sqr_mul_4 = y1_sqr + y1_sqr;
             y1_sqr_mul_4 = y1_sqr_mul_4 + y1_sqr_mul_4;
-            Fr x1_pow_4_mul_9 = x_pow_4 * Fr.wrap(9);
+            ClaimArtifactFr x1_pow_4_mul_9 = x_pow_4 * ClaimArtifactFr.wrap(9);
 
             // NOTE: pushed into memory (stack >:'( )
             ep.x_double_identity = (ep.x_3 + ep.x_1 + ep.x_1) * y1_sqr_mul_4 - x1_pow_4_mul_9;
 
-            Fr acc = ep.x_double_identity * domainSep * wire(p, WIRE.Q_ELLIPTIC) * q_is_double;
+            ClaimArtifactFr acc = ep.x_double_identity * domainSep * wire(p, WIRE.Q_ELLIPTIC) * q_is_double;
             evals[10] = evals[10] + acc;
         }
 
         // Contribution 11 point doubling, y-coordinate check
         // (y1 + y1) (2y1) - (3 * x1 * x1)(x1 - x3) = 0
         {
-            Fr x1_sqr_mul_3 = (ep.x_1 + ep.x_1 + ep.x_1) * ep.x_1;
-            Fr y_double_identity = x1_sqr_mul_3 * (ep.x_1 - ep.x_3) - (ep.y_1 + ep.y_1) * (ep.y_1 + ep.y_3);
+            ClaimArtifactFr x1_sqr_mul_3 = (ep.x_1 + ep.x_1 + ep.x_1) * ep.x_1;
+            ClaimArtifactFr y_double_identity = x1_sqr_mul_3 * (ep.x_1 - ep.x_3) - (ep.y_1 + ep.y_1) * (ep.y_1 + ep.y_3);
             evals[11] = evals[11] + y_double_identity * domainSep * wire(p, WIRE.Q_ELLIPTIC) * q_is_double;
         }
     }
 
     // Constants for the auxiliary relation
-    Fr constant LIMB_SIZE = Fr.wrap(uint256(1) << 68);
-    Fr constant SUBLIMB_SHIFT = Fr.wrap(uint256(1) << 14);
+    ClaimArtifactFr constant LIMB_SIZE = ClaimArtifactFr.wrap(uint256(1) << 68);
+    ClaimArtifactFr constant SUBLIMB_SHIFT = ClaimArtifactFr.wrap(uint256(1) << 14);
 
     // Parameters used within the Auxiliary Relation
     // A struct is used to work around stack too deep. This relation has alot of variables
     struct AuxParams {
-        Fr limb_subproduct;
-        Fr non_native_field_gate_1;
-        Fr non_native_field_gate_2;
-        Fr non_native_field_gate_3;
-        Fr limb_accumulator_1;
-        Fr limb_accumulator_2;
-        Fr memory_record_check;
-        Fr partial_record_check;
-        Fr next_gate_access_type;
-        Fr record_delta;
-        Fr index_delta;
-        Fr adjacent_values_match_if_adjacent_indices_match;
-        Fr adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation;
-        Fr access_check;
-        Fr next_gate_access_type_is_boolean;
-        Fr ROM_consistency_check_identity;
-        Fr RAM_consistency_check_identity;
-        Fr timestamp_delta;
-        Fr RAM_timestamp_check_identity;
-        Fr memory_identity;
-        Fr index_is_monotonically_increasing;
-        Fr auxiliary_identity;
+        ClaimArtifactFr limb_subproduct;
+        ClaimArtifactFr non_native_field_gate_1;
+        ClaimArtifactFr non_native_field_gate_2;
+        ClaimArtifactFr non_native_field_gate_3;
+        ClaimArtifactFr limb_accumulator_1;
+        ClaimArtifactFr limb_accumulator_2;
+        ClaimArtifactFr memory_record_check;
+        ClaimArtifactFr partial_record_check;
+        ClaimArtifactFr next_gate_access_type;
+        ClaimArtifactFr record_delta;
+        ClaimArtifactFr index_delta;
+        ClaimArtifactFr adjacent_values_match_if_adjacent_indices_match;
+        ClaimArtifactFr adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation;
+        ClaimArtifactFr access_check;
+        ClaimArtifactFr next_gate_access_type_is_boolean;
+        ClaimArtifactFr ROM_consistency_check_identity;
+        ClaimArtifactFr RAM_consistency_check_identity;
+        ClaimArtifactFr timestamp_delta;
+        ClaimArtifactFr RAM_timestamp_check_identity;
+        ClaimArtifactFr memory_identity;
+        ClaimArtifactFr index_is_monotonically_increasing;
+        ClaimArtifactFr auxiliary_identity;
     }
 
     function accumulateAuxillaryRelation(
-        Fr[NUMBER_OF_ENTITIES] memory p,
+        ClaimArtifactFr[NUMBER_OF_ENTITIES] memory p,
         ClaimArtifactHonk.RelationParameters memory rp,
-        Fr[NUMBER_OF_SUBRELATIONS] memory evals,
-        Fr domainSep
+        ClaimArtifactFr[NUMBER_OF_SUBRELATIONS] memory evals,
+        ClaimArtifactFr domainSep
     ) internal pure {
         AuxParams memory ap;
 
@@ -1134,7 +1134,7 @@ library ClaimArtifactRelationsLib {
         ap.non_native_field_gate_3 = ap.non_native_field_gate_3 - (wire(p, WIRE.W_O_SHIFT) + wire(p, WIRE.W_4_SHIFT));
         ap.non_native_field_gate_3 = ap.non_native_field_gate_3 * wire(p, WIRE.Q_M);
 
-        Fr non_native_field_identity =
+        ClaimArtifactFr non_native_field_identity =
             ap.non_native_field_gate_1 + ap.non_native_field_gate_2 + ap.non_native_field_gate_3;
         non_native_field_identity = non_native_field_identity * wire(p, WIRE.Q_R);
 
@@ -1164,7 +1164,7 @@ library ClaimArtifactRelationsLib {
         ap.limb_accumulator_2 = ap.limb_accumulator_2 - wire(p, WIRE.W_4_SHIFT);
         ap.limb_accumulator_2 = ap.limb_accumulator_2 * wire(p, WIRE.Q_M);
 
-        Fr limb_accumulator_identity = ap.limb_accumulator_1 + ap.limb_accumulator_2;
+        ClaimArtifactFr limb_accumulator_identity = ap.limb_accumulator_1 + ap.limb_accumulator_2;
         limb_accumulator_identity = limb_accumulator_identity * wire(p, WIRE.Q_O); //  deg 3
 
         /**
@@ -1236,7 +1236,7 @@ library ClaimArtifactRelationsLib {
 
         ap.index_is_monotonically_increasing = ap.index_delta * ap.index_delta - ap.index_delta; // deg 2
 
-        ap.adjacent_values_match_if_adjacent_indices_match = (ap.index_delta * MINUS_ONE + Fr.wrap(1)) * ap.record_delta; // deg 2
+        ap.adjacent_values_match_if_adjacent_indices_match = (ap.index_delta * MINUS_ONE + ClaimArtifactFr.wrap(1)) * ap.record_delta; // deg 2
 
         evals[13] = ap.adjacent_values_match_if_adjacent_indices_match * (wire(p, WIRE.Q_L) * wire(p, WIRE.Q_R))
             * (wire(p, WIRE.Q_AUX) * domainSep); // deg 5
@@ -1264,7 +1264,7 @@ library ClaimArtifactRelationsLib {
          * N.B. it is the responsibility of the circuit writer to ensure that every RAM cell is initialized
          * with a WRITE operation.
          */
-        Fr access_type = (wire(p, WIRE.W_4) - ap.partial_record_check); // will be 0 or 1 for honest Prover; deg 1 or 4
+        ClaimArtifactFr access_type = (wire(p, WIRE.W_4) - ap.partial_record_check); // will be 0 or 1 for honest Prover; deg 1 or 4
         ap.access_check = access_type * access_type - access_type; // check value is 0 or 1; deg 2 or 8
 
         ap.next_gate_access_type = wire(p, WIRE.W_O_SHIFT) * rp.etaThree;
@@ -1272,10 +1272,10 @@ library ClaimArtifactRelationsLib {
         ap.next_gate_access_type = ap.next_gate_access_type + (wire(p, WIRE.W_L_SHIFT) * rp.eta);
         ap.next_gate_access_type = wire(p, WIRE.W_4_SHIFT) - ap.next_gate_access_type;
 
-        Fr value_delta = wire(p, WIRE.W_O_SHIFT) - wire(p, WIRE.W_O);
+        ClaimArtifactFr value_delta = wire(p, WIRE.W_O_SHIFT) - wire(p, WIRE.W_O);
         ap.adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation = (
-            ap.index_delta * MINUS_ONE + Fr.wrap(1)
-        ) * value_delta * (ap.next_gate_access_type * MINUS_ONE + Fr.wrap(1)); // deg 3 or 6
+            ap.index_delta * MINUS_ONE + ClaimArtifactFr.wrap(1)
+        ) * value_delta * (ap.next_gate_access_type * MINUS_ONE + ClaimArtifactFr.wrap(1)); // deg 3 or 6
 
         // We can't apply the RAM consistency check identity on the final entry in the sorted list (the wires in the
         // next gate would make the identity fail).  We need to validate that its 'access type' bool is correct. Can't
@@ -1306,7 +1306,7 @@ library ClaimArtifactRelationsLib {
          */
         ap.timestamp_delta = wire(p, WIRE.W_R_SHIFT) - wire(p, WIRE.W_R);
         ap.RAM_timestamp_check_identity =
-            (ap.index_delta * MINUS_ONE + Fr.wrap(1)) * ap.timestamp_delta - wire(p, WIRE.W_O); // deg 3
+            (ap.index_delta * MINUS_ONE + ClaimArtifactFr.wrap(1)) * ap.timestamp_delta - wire(p, WIRE.W_O); // deg 3
 
         /**
          * Complete Contribution 12
@@ -1326,29 +1326,29 @@ library ClaimArtifactRelationsLib {
     }
 
     struct PoseidonExternalParams {
-        Fr s1;
-        Fr s2;
-        Fr s3;
-        Fr s4;
-        Fr u1;
-        Fr u2;
-        Fr u3;
-        Fr u4;
-        Fr t0;
-        Fr t1;
-        Fr t2;
-        Fr t3;
-        Fr v1;
-        Fr v2;
-        Fr v3;
-        Fr v4;
-        Fr q_pos_by_scaling;
+        ClaimArtifactFr s1;
+        ClaimArtifactFr s2;
+        ClaimArtifactFr s3;
+        ClaimArtifactFr s4;
+        ClaimArtifactFr u1;
+        ClaimArtifactFr u2;
+        ClaimArtifactFr u3;
+        ClaimArtifactFr u4;
+        ClaimArtifactFr t0;
+        ClaimArtifactFr t1;
+        ClaimArtifactFr t2;
+        ClaimArtifactFr t3;
+        ClaimArtifactFr v1;
+        ClaimArtifactFr v2;
+        ClaimArtifactFr v3;
+        ClaimArtifactFr v4;
+        ClaimArtifactFr q_pos_by_scaling;
     }
 
     function accumulatePoseidonExternalRelation(
-        Fr[NUMBER_OF_ENTITIES] memory p,
-        Fr[NUMBER_OF_SUBRELATIONS] memory evals,
-        Fr domainSep
+        ClaimArtifactFr[NUMBER_OF_ENTITIES] memory p,
+        ClaimArtifactFr[NUMBER_OF_SUBRELATIONS] memory evals,
+        ClaimArtifactFr domainSep
     ) internal pure {
         PoseidonExternalParams memory ep;
 
@@ -1388,27 +1388,27 @@ library ClaimArtifactRelationsLib {
     }
 
     struct PoseidonInternalParams {
-        Fr u1;
-        Fr u2;
-        Fr u3;
-        Fr u4;
-        Fr u_sum;
-        Fr v1;
-        Fr v2;
-        Fr v3;
-        Fr v4;
-        Fr s1;
-        Fr q_pos_by_scaling;
+        ClaimArtifactFr u1;
+        ClaimArtifactFr u2;
+        ClaimArtifactFr u3;
+        ClaimArtifactFr u4;
+        ClaimArtifactFr u_sum;
+        ClaimArtifactFr v1;
+        ClaimArtifactFr v2;
+        ClaimArtifactFr v3;
+        ClaimArtifactFr v4;
+        ClaimArtifactFr s1;
+        ClaimArtifactFr q_pos_by_scaling;
     }
 
     function accumulatePoseidonInternalRelation(
-        Fr[NUMBER_OF_ENTITIES] memory p,
-        Fr[NUMBER_OF_SUBRELATIONS] memory evals,
-        Fr domainSep
+        ClaimArtifactFr[NUMBER_OF_ENTITIES] memory p,
+        ClaimArtifactFr[NUMBER_OF_SUBRELATIONS] memory evals,
+        ClaimArtifactFr domainSep
     ) internal pure {
         PoseidonInternalParams memory ip;
 
-        Fr[4] memory INTERNAL_MATRIX_DIAGONAL = [
+        ClaimArtifactFr[4] memory INTERNAL_MATRIX_DIAGONAL = [
             ClaimArtifactFrLib.from(0x10dc6e9c006ea38b04b1e03b4bd9490c0d03f98929ca1d7fb56821fd19d3b6e7),
             ClaimArtifactFrLib.from(0x0c28145b6a44df3e0149b3d0a30b3bb599df9756d4dd9b84a86b38cfb45a740b),
             ClaimArtifactFrLib.from(0x00544b8338791518b2c7645a50392798b21f75bb60e3596170067d00141cac15),
@@ -1443,9 +1443,9 @@ library ClaimArtifactRelationsLib {
     }
 
     function scaleAndBatchSubrelations(
-        Fr[NUMBER_OF_SUBRELATIONS] memory evaluations,
-        Fr[NUMBER_OF_ALPHAS] memory subrelationChallenges
-    ) internal pure returns (Fr accumulator) {
+        ClaimArtifactFr[NUMBER_OF_SUBRELATIONS] memory evaluations,
+        ClaimArtifactFr[NUMBER_OF_ALPHAS] memory subrelationChallenges
+    ) internal pure returns (ClaimArtifactFr accumulator) {
         accumulator = accumulator + evaluations[0];
 
         for (uint256 i = 1; i < NUMBER_OF_SUBRELATIONS; ++i) {
@@ -1455,30 +1455,30 @@ library ClaimArtifactRelationsLib {
 }
 
 struct ShpleminiIntermediates {
-    Fr unshiftedScalar;
-    Fr shiftedScalar;
+    ClaimArtifactFr unshiftedScalar;
+    ClaimArtifactFr shiftedScalar;
     // Scalar to be multiplied by [1]₁
-    Fr constantTermAccumulator;
+    ClaimArtifactFr constantTermAccumulator;
     // Accumulator for powers of rho
-    Fr batchingChallenge;
+    ClaimArtifactFr batchingChallenge;
     // Linear combination of multilinear (sumcheck) evaluations and powers of rho
-    Fr batchedEvaluation;
+    ClaimArtifactFr batchedEvaluation;
     // 1/(z - r^{2^i}) for i = 0, ..., logSize, dynamically updated
-    Fr posInvertedDenominator;
+    ClaimArtifactFr posInvertedDenominator;
     // 1/(z + r^{2^i}) for i = 0, ..., logSize, dynamically updated
-    Fr negInvertedDenominator;
+    ClaimArtifactFr negInvertedDenominator;
     // v^{2i} * 1/(z - r^{2^i})
-    Fr scalingFactorPos;
+    ClaimArtifactFr scalingFactorPos;
     // v^{2i+1} * 1/(z + r^{2^i})
-    Fr scalingFactorNeg;
+    ClaimArtifactFr scalingFactorNeg;
     // // Fold_i(r^{2^i}) reconstructed by Verifier
-    // Fr[CONST_PROOF_SIZE_LOG_N] foldPosEvaluations;
+    // ClaimArtifactFr[CONST_PROOF_SIZE_LOG_N] foldPosEvaluations;
 }
 
-library ClaimArtifactCommitmentSchemeLib {
-    using ClaimArtifactFrLib for Fr;
+library CommitmentSchemeLib {
+    using ClaimArtifactFrLib for ClaimArtifactFr;
 
-    function computeSquares(Fr r) internal pure returns (Fr[CONST_PROOF_SIZE_LOG_N] memory squares) {
+    function computeSquares(ClaimArtifactFr r) internal pure returns (ClaimArtifactFr[CONST_PROOF_SIZE_LOG_N] memory squares) {
         squares[0] = r;
         for (uint256 i = 1; i < CONST_PROOF_SIZE_LOG_N; ++i) {
             squares[i] = squares[i - 1].sqr();
@@ -1487,22 +1487,22 @@ library ClaimArtifactCommitmentSchemeLib {
 
     // Compute the evaluations  A_l(r^{2^l}) for l = 0, ..., m-1
     function computeFoldPosEvaluations(
-        Fr[CONST_PROOF_SIZE_LOG_N] memory sumcheckUChallenges,
-        Fr batchedEvalAccumulator,
-        Fr[CONST_PROOF_SIZE_LOG_N] memory geminiEvaluations,
-        Fr[CONST_PROOF_SIZE_LOG_N] memory geminiEvalChallengePowers,
+        ClaimArtifactFr[CONST_PROOF_SIZE_LOG_N] memory sumcheckUChallenges,
+        ClaimArtifactFr batchedEvalAccumulator,
+        ClaimArtifactFr[CONST_PROOF_SIZE_LOG_N] memory geminiEvaluations,
+        ClaimArtifactFr[CONST_PROOF_SIZE_LOG_N] memory geminiEvalChallengePowers,
         uint256 logSize
-    ) internal view returns (Fr[CONST_PROOF_SIZE_LOG_N] memory foldPosEvaluations) {
+    ) internal view returns (ClaimArtifactFr[CONST_PROOF_SIZE_LOG_N] memory foldPosEvaluations) {
         for (uint256 i = CONST_PROOF_SIZE_LOG_N; i > 0; --i) {
-            Fr challengePower = geminiEvalChallengePowers[i - 1];
-            Fr u = sumcheckUChallenges[i - 1];
+            ClaimArtifactFr challengePower = geminiEvalChallengePowers[i - 1];
+            ClaimArtifactFr u = sumcheckUChallenges[i - 1];
 
-            Fr batchedEvalRoundAcc = (
-                (challengePower * batchedEvalAccumulator * Fr.wrap(2))
-                    - geminiEvaluations[i - 1] * (challengePower * (Fr.wrap(1) - u) - u)
+            ClaimArtifactFr batchedEvalRoundAcc = (
+                (challengePower * batchedEvalAccumulator * ClaimArtifactFr.wrap(2))
+                    - geminiEvaluations[i - 1] * (challengePower * (ClaimArtifactFr.wrap(1) - u) - u)
             );
             // Divide by the denominator
-            batchedEvalRoundAcc = batchedEvalRoundAcc * (challengePower * (Fr.wrap(1) - u) + u).invert();
+            batchedEvalRoundAcc = batchedEvalRoundAcc * (challengePower * (ClaimArtifactFr.wrap(1) - u) + u).invert();
 
             if (i <= logSize) {
                 batchedEvalAccumulator = batchedEvalRoundAcc;
@@ -1513,13 +1513,13 @@ library ClaimArtifactCommitmentSchemeLib {
     }
 }
 
-interface IClaimArtifactVerifier {
+interface IVerifier {
     function verify(bytes calldata _proof, bytes32[] calldata _publicInputs) external view returns (bool);
 }
 
 
-abstract contract ClaimArtifactBaseHonkVerifier is IClaimArtifactVerifier {
-    using ClaimArtifactFrLib for Fr;
+abstract contract ClaimArtifactBaseHonkVerifier is IVerifier {
+    using ClaimArtifactFrLib for ClaimArtifactFr;
 
     uint256 immutable n;
     uint256 immutable logN;
@@ -1548,7 +1548,7 @@ abstract contract ClaimArtifactBaseHonkVerifier is IClaimArtifactVerifier {
         }
 
         ClaimArtifactHonk.VerificationKey memory vk = loadVerificationKey();
-        ClaimArtifactHonk.Proof memory p = ClaimArtifactTranscriptLib.loadProof(proof);
+        ClaimArtifactHonk.Proof memory p = TranscriptLib.loadProof(proof);
 
         if (publicInputs.length != vk.publicInputsSize) {
             revert PublicInputsLengthWrong();
@@ -1556,7 +1556,7 @@ abstract contract ClaimArtifactBaseHonkVerifier is IClaimArtifactVerifier {
 
         // Generate the fiat shamir challenges for the whole protocol
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1281): Add pubInputsOffset to VK or remove entirely.
-        Transcript memory t = ClaimArtifactTranscriptLib.generateTranscript(p, publicInputs, vk.circuitSize, vk.publicInputsSize, /*pubInputsOffset=*/1);
+        Transcript memory t = TranscriptLib.generateTranscript(p, publicInputs, vk.circuitSize, vk.publicInputsSize, /*pubInputsOffset=*/1);
 
         // Derive public input delta
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1281): Add pubInputsOffset to VK or remove entirely.
@@ -1574,20 +1574,20 @@ abstract contract ClaimArtifactBaseHonkVerifier is IClaimArtifactVerifier {
         return sumcheckVerified && shpleminiVerified; // Boolean condition not required - nice for vanity :)
     }
 
-    function computePublicInputDelta(bytes32[] memory publicInputs, Fr beta, Fr gamma, uint256 offset)
+    function computePublicInputDelta(bytes32[] memory publicInputs, ClaimArtifactFr beta, ClaimArtifactFr gamma, uint256 offset)
         internal
         view
-        returns (Fr publicInputDelta)
+        returns (ClaimArtifactFr publicInputDelta)
     {
-        Fr numerator = Fr.wrap(1);
-        Fr denominator = Fr.wrap(1);
+        ClaimArtifactFr numerator = ClaimArtifactFr.wrap(1);
+        ClaimArtifactFr denominator = ClaimArtifactFr.wrap(1);
 
-        Fr numeratorAcc = gamma + (beta * ClaimArtifactFrLib.from(n + offset));
-        Fr denominatorAcc = gamma - (beta * ClaimArtifactFrLib.from(offset + 1));
+        ClaimArtifactFr numeratorAcc = gamma + (beta * ClaimArtifactFrLib.from(n + offset));
+        ClaimArtifactFr denominatorAcc = gamma - (beta * ClaimArtifactFrLib.from(offset + 1));
 
         {
             for (uint256 i = 0; i < numPublicInputs; i++) {
-                Fr pubInput = ClaimArtifactFrLib.fromBytes32(publicInputs[i]);
+                ClaimArtifactFr pubInput = ClaimArtifactFrLib.fromBytes32(publicInputs[i]);
 
                 numerator = numerator * (numeratorAcc + pubInput);
                 denominator = denominator * (denominatorAcc + pubInput);
@@ -1597,21 +1597,21 @@ abstract contract ClaimArtifactBaseHonkVerifier is IClaimArtifactVerifier {
             }
         }
 
-        // Fr delta = numerator / denominator; // TOOO: batch invert later?
+        // ClaimArtifactFr delta = numerator / denominator; // TOOO: batch invert later?
         publicInputDelta = ClaimArtifactFrLib.div(numerator, denominator);
     }
 
     function verifySumcheck(ClaimArtifactHonk.Proof memory proof, Transcript memory tp) internal view returns (bool verified) {
-        Fr roundTarget;
-        Fr powPartialEvaluation = Fr.wrap(1);
+        ClaimArtifactFr roundTarget;
+        ClaimArtifactFr powPartialEvaluation = ClaimArtifactFr.wrap(1);
 
         // We perform sumcheck reductions over log n rounds ( the multivariate degree )
         for (uint256 round; round < logN; ++round) {
-            Fr[BATCHED_RELATION_PARTIAL_LENGTH] memory roundUnivariate = proof.sumcheckUnivariates[round];
+            ClaimArtifactFr[BATCHED_RELATION_PARTIAL_LENGTH] memory roundUnivariate = proof.sumcheckUnivariates[round];
             bool valid = checkSum(roundUnivariate, roundTarget);
             if (!valid) revert SumcheckFailed();
 
-            Fr roundChallenge = tp.sumCheckUChallenges[round];
+            ClaimArtifactFr roundChallenge = tp.sumCheckUChallenges[round];
 
             // Update the round target for the next rounf
             roundTarget = computeNextTargetSum(roundUnivariate, roundChallenge);
@@ -1619,58 +1619,58 @@ abstract contract ClaimArtifactBaseHonkVerifier is IClaimArtifactVerifier {
         }
 
         // Last round
-        Fr grandHonkRelationSum =
-            ClaimArtifactRelationsLib.accumulateRelationEvaluations(proof.sumcheckEvaluations, tp.relationParameters, tp.alphas, powPartialEvaluation);
+        ClaimArtifactFr grandHonkRelationSum =
+            RelationsLib.accumulateRelationEvaluations(proof.sumcheckEvaluations, tp.relationParameters, tp.alphas, powPartialEvaluation);
         verified = (grandHonkRelationSum == roundTarget);
     }
 
-    function checkSum(Fr[BATCHED_RELATION_PARTIAL_LENGTH] memory roundUnivariate, Fr roundTarget)
+    function checkSum(ClaimArtifactFr[BATCHED_RELATION_PARTIAL_LENGTH] memory roundUnivariate, ClaimArtifactFr roundTarget)
         internal
         pure
         returns (bool checked)
     {
-        Fr totalSum = roundUnivariate[0] + roundUnivariate[1];
+        ClaimArtifactFr totalSum = roundUnivariate[0] + roundUnivariate[1];
         checked = totalSum == roundTarget;
     }
 
     // Return the new target sum for the next sumcheck round
-    function computeNextTargetSum(Fr[BATCHED_RELATION_PARTIAL_LENGTH] memory roundUnivariates, Fr roundChallenge)
+    function computeNextTargetSum(ClaimArtifactFr[BATCHED_RELATION_PARTIAL_LENGTH] memory roundUnivariates, ClaimArtifactFr roundChallenge)
         internal
         view
-        returns (Fr targetSum)
+        returns (ClaimArtifactFr targetSum)
     {
         // TODO: inline
-        Fr[BATCHED_RELATION_PARTIAL_LENGTH] memory BARYCENTRIC_LAGRANGE_DENOMINATORS = [
-            Fr.wrap(0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffec51),
-            Fr.wrap(0x00000000000000000000000000000000000000000000000000000000000002d0),
-            Fr.wrap(0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffff11),
-            Fr.wrap(0x0000000000000000000000000000000000000000000000000000000000000090),
-            Fr.wrap(0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffff71),
-            Fr.wrap(0x00000000000000000000000000000000000000000000000000000000000000f0),
-            Fr.wrap(0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593effffd31),
-            Fr.wrap(0x00000000000000000000000000000000000000000000000000000000000013b0)
+        ClaimArtifactFr[BATCHED_RELATION_PARTIAL_LENGTH] memory BARYCENTRIC_LAGRANGE_DENOMINATORS = [
+            ClaimArtifactFr.wrap(0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffec51),
+            ClaimArtifactFr.wrap(0x00000000000000000000000000000000000000000000000000000000000002d0),
+            ClaimArtifactFr.wrap(0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffff11),
+            ClaimArtifactFr.wrap(0x0000000000000000000000000000000000000000000000000000000000000090),
+            ClaimArtifactFr.wrap(0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffff71),
+            ClaimArtifactFr.wrap(0x00000000000000000000000000000000000000000000000000000000000000f0),
+            ClaimArtifactFr.wrap(0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593effffd31),
+            ClaimArtifactFr.wrap(0x00000000000000000000000000000000000000000000000000000000000013b0)
         ];
 
         // To compute the next target sum, we evaluate the given univariate at a point u (challenge).
 
         // Performing Barycentric evaluations
         // Compute B(x)
-        Fr numeratorValue = Fr.wrap(1);
+        ClaimArtifactFr numeratorValue = ClaimArtifactFr.wrap(1);
         for (uint256 i = 0; i < BATCHED_RELATION_PARTIAL_LENGTH; ++i) {
-            numeratorValue = numeratorValue * (roundChallenge - Fr.wrap(i));
+            numeratorValue = numeratorValue * (roundChallenge - ClaimArtifactFr.wrap(i));
         }
 
         // Calculate domain size N of inverses
-        Fr[BATCHED_RELATION_PARTIAL_LENGTH] memory denominatorInverses;
+        ClaimArtifactFr[BATCHED_RELATION_PARTIAL_LENGTH] memory denominatorInverses;
         for (uint256 i = 0; i < BATCHED_RELATION_PARTIAL_LENGTH; ++i) {
-            Fr inv = BARYCENTRIC_LAGRANGE_DENOMINATORS[i];
-            inv = inv * (roundChallenge - Fr.wrap(i));
+            ClaimArtifactFr inv = BARYCENTRIC_LAGRANGE_DENOMINATORS[i];
+            inv = inv * (roundChallenge - ClaimArtifactFr.wrap(i));
             inv = ClaimArtifactFrLib.invert(inv);
             denominatorInverses[i] = inv;
         }
 
         for (uint256 i = 0; i < BATCHED_RELATION_PARTIAL_LENGTH; ++i) {
-            Fr term = roundUnivariates[i];
+            ClaimArtifactFr term = roundUnivariates[i];
             term = term * denominatorInverses[i];
             targetSum = targetSum + term;
         }
@@ -1680,12 +1680,12 @@ abstract contract ClaimArtifactBaseHonkVerifier is IClaimArtifactVerifier {
     }
 
     // Univariate evaluation of the monomial ((1-X_l) + X_l.B_l) at the challenge point X_l=u_l
-    function partiallyEvaluatePOW(Fr gateChallenge, Fr currentEvaluation, Fr roundChallenge)
+    function partiallyEvaluatePOW(ClaimArtifactFr gateChallenge, ClaimArtifactFr currentEvaluation, ClaimArtifactFr roundChallenge)
         internal
         pure
-        returns (Fr newEvaluation)
+        returns (ClaimArtifactFr newEvaluation)
     {
-        Fr univariateEval = Fr.wrap(1) + (roundChallenge * (gateChallenge - Fr.wrap(1)));
+        ClaimArtifactFr univariateEval = ClaimArtifactFr.wrap(1) + (roundChallenge * (gateChallenge - ClaimArtifactFr.wrap(1)));
         newEvaluation = currentEvaluation * univariateEval;
     }
 
@@ -1697,10 +1697,10 @@ abstract contract ClaimArtifactBaseHonkVerifier is IClaimArtifactVerifier {
         ShpleminiIntermediates memory mem; // stack
 
         // - Compute vector (r, r², ... , r²⁽ⁿ⁻¹⁾), where n = log_circuit_size
-        Fr[CONST_PROOF_SIZE_LOG_N] memory powers_of_evaluation_challenge = ClaimArtifactCommitmentSchemeLib.computeSquares(tp.geminiR);
+        ClaimArtifactFr[CONST_PROOF_SIZE_LOG_N] memory powers_of_evaluation_challenge = CommitmentSchemeLib.computeSquares(tp.geminiR);
 
         // Arrays hold values that will be linearly combined for the gemini and shplonk batch openings
-        Fr[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] memory scalars;
+        ClaimArtifactFr[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] memory scalars;
         ClaimArtifactHonk.G1Point[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] memory commitments;
 
         mem.posInvertedDenominator = (tp.shplonkZ - powers_of_evaluation_challenge[0]).invert();
@@ -1710,11 +1710,11 @@ abstract contract ClaimArtifactBaseHonkVerifier is IClaimArtifactVerifier {
         mem.shiftedScalar =
             tp.geminiR.invert() * (mem.posInvertedDenominator - (tp.shplonkNu * mem.negInvertedDenominator));
 
-        scalars[0] = Fr.wrap(1);
+        scalars[0] = ClaimArtifactFr.wrap(1);
         commitments[0] = convertProofPoint(proof.shplonkQ);
 
-        mem.batchingChallenge = Fr.wrap(1);
-        mem.batchedEvaluation = Fr.wrap(0);
+        mem.batchingChallenge = ClaimArtifactFr.wrap(1);
+        mem.batchedEvaluation = ClaimArtifactFr.wrap(0);
 
         for (uint256 i = 1; i <= NUMBER_UNSHIFTED; ++i) {
             scalars[i] = mem.unshiftedScalar.neg() * mem.batchingChallenge;
@@ -1775,7 +1775,7 @@ abstract contract ClaimArtifactBaseHonkVerifier is IClaimArtifactVerifier {
 
         // Add contributions from A₀(r) and A₀(-r) to constant_term_accumulator:
         // Compute the evaluations A_l(r^{2^l}) for l = 0, ..., logN - 1
-        Fr[CONST_PROOF_SIZE_LOG_N] memory foldPosEvaluations = ClaimArtifactCommitmentSchemeLib.computeFoldPosEvaluations(
+        ClaimArtifactFr[CONST_PROOF_SIZE_LOG_N] memory foldPosEvaluations = CommitmentSchemeLib.computeFoldPosEvaluations(
             tp.sumCheckUChallenges,
             mem.batchedEvaluation,
             proof.geminiAEvaluations,
@@ -1807,7 +1807,7 @@ abstract contract ClaimArtifactBaseHonkVerifier is IClaimArtifactVerifier {
 
                 // Accumulate the const term contribution given by
                 // v^{2l} * Aₗ(r^{2ˡ}) /(z-r^{2^l}) + v^{2l+1} * Aₗ(-r^{2ˡ}) /(z+ r^{2^l})
-                Fr accumContribution = mem.scalingFactorNeg * proof.geminiAEvaluations[i + 1];
+                ClaimArtifactFr accumContribution = mem.scalingFactorNeg * proof.geminiAEvaluations[i + 1];
                 accumContribution = accumContribution + mem.scalingFactorPos * foldPosEvaluations[i + 1];
                 mem.constantTermAccumulator = mem.constantTermAccumulator + accumContribution;
                 // Update the running power of v
@@ -1835,7 +1835,7 @@ abstract contract ClaimArtifactBaseHonkVerifier is IClaimArtifactVerifier {
     // This implementation is the same as above with different constants
     function batchMul(
         ClaimArtifactHonk.G1Point[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] memory base,
-        Fr[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] memory scalars
+        ClaimArtifactFr[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] memory scalars
     ) internal view returns (ClaimArtifactHonk.G1Point memory result) {
         uint256 limit = NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2;
         assembly ("memory-safe") {
@@ -1874,7 +1874,7 @@ abstract contract ClaimArtifactBaseHonkVerifier is IClaimArtifactVerifier {
     }
 }
 
-contract ClaimArtifactHonkVerifier is ClaimArtifactBaseHonkVerifier(CA_N, CA_LOG_N, CA_NUMBER_OF_PUBLIC_INPUTS) {
+contract ClaimArtifactHonkVerifier is ClaimArtifactBaseHonkVerifier(N, LOG_N, NUMBER_OF_PUBLIC_INPUTS) {
      function loadVerificationKey() internal pure override returns (ClaimArtifactHonk.VerificationKey memory) {
        return ClaimArtifactVerificationKey.loadVerificationKey();
     }
