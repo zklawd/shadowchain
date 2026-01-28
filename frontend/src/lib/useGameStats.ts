@@ -35,11 +35,11 @@ export function useGameStats(): { stats: GameStats; isLoading: boolean } {
 
   // 2. Batch-read every game struct
   const gameContracts = useMemo(() => {
-    if (gameCount === 0) return [];
-    return Array.from({ length: gameCount }, (_, i) => ({
+    if (gameCount <= 1) return []; // skip game #0 (phantom)
+    return Array.from({ length: gameCount - 1 }, (_, i) => ({
       ...shadowChainGameConfig,
       functionName: 'getGame' as const,
-      args: [BigInt(i)] as const,
+      args: [BigInt(i + 1)] as const,
     }));
   }, [gameCount]);
 
