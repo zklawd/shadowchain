@@ -1,5 +1,5 @@
 import { getDefaultConfig } from '@rainbow-me/rainbowkit';
-import { http } from 'wagmi';
+import { http, createStorage } from 'wagmi';
 import { sepolia } from 'wagmi/chains';
 
 // WalletConnect Cloud project ID
@@ -14,4 +14,9 @@ export const config = getDefaultConfig({
     [sepolia.id]: http('https://ethereum-sepolia-rpc.publicnode.com'),
   },
   ssr: false,
+  // Use sessionStorage so each tab has independent wallet state
+  // Fixes: same-browser multiplayer testing (each tab = different player)
+  storage: createStorage({
+    storage: typeof window !== 'undefined' ? window.sessionStorage : undefined,
+  }),
 });
