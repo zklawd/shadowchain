@@ -154,6 +154,7 @@ contract ShadowChainGame is ReentrancyGuard {
 
     /// @notice Game ID → Game data
     mapping(uint256 => Game) public games;
+    mapping(uint256 => bytes32) public mapHashes; // gameId => Pedersen hash of wall row bitmasks
 
     /// @notice Game ID → player address → Player data
     mapping(uint256 => mapping(address => Player)) public players;
@@ -221,6 +222,19 @@ contract ShadowChainGame is ReentrancyGuard {
         artifactRegistry.assignArtifacts(gameId, seed, treasureCells);
 
         emit GameCreated(gameId, msg.sender, seed, maxPlayers, entryFee);
+    }
+
+    /// @notice Set the map hash for a game (Pedersen hash of wall row bitmasks).
+    ///         Can be called once per game before it starts. The hash is deterministic
+    ///         from the public wallBitmap, so anyone can verify it off-chain.
+    /// @param gameId The game ID
+    /// @param _mapHash Pedersen hash of the 16 wall row bitmasks
+    function setMapHash(uint256 gameId, bytes32 _mapHash) external {
+        Game storage g = games[gameId];
+        require(g.state == GameState.Created, "Game already started");
+        require(mapHashes[gameId] == bytes32(0), "Map hash already set");
+        require(_mapHash != bytes32(0), "Empty map hash");
+        mapHashes[gameId] = _mapHash;
     }
 
     /// @notice Join a game by committing to a starting position

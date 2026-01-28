@@ -208,6 +208,7 @@ function useOnChainGames(): { games: OnChainGame[]; isLoading: boolean; error: E
         } satisfies OnChainGame;
       })
       .filter((g): g is OnChainGame => g !== null)
+      .filter((g) => g.id !== '0') // Filter out phantom Game #0 from contract init
       .reverse(); // newest first
   }, [gamesData]);
 

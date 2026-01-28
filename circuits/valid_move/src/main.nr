@@ -57,7 +57,7 @@ fn main(
 
     // 5. Wall check: new position must not be a wall
     let row_bits = map_walls[ny as u32] as u32;
-    let bit = (row_bits >> (nx as u32)) & 1;
+    let bit = (row_bits >> (nx as u8)) & 1;
     assert(bit == 0, "New position is a wall");
 }
 
