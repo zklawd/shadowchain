@@ -10,9 +10,10 @@ interface GameGridProps {
   visibleCells: Set<string>;
   enemyPositions?: Record<string, Position>;
   onCellClick?: (x: number, y: number) => void;
+  isActive?: boolean;
 }
 
-export default function GameGrid({ map, playerPosition, visibleCells, enemyPositions = {}, onCellClick }: GameGridProps) {
+export default function GameGrid({ map, playerPosition, visibleCells, enemyPositions = {}, onCellClick, isActive = true }: GameGridProps) {
   const isAdjacent = useCallback((x: number, y: number) => {
     const dx = Math.abs(x - playerPosition.x);
     const dy = Math.abs(y - playerPosition.y);
@@ -55,7 +56,7 @@ export default function GameGrid({ map, playerPosition, visibleCells, enemyPosit
                   const isVisible = visibleCells.has(`${x},${y}`);
                   const isEnemy = getEnemyAtCell(x, y);
                   const adjacent = isAdjacent(x, y);
-                  const canMove = adjacent && cell.type !== 'wall' && isVisible;
+                  const canMove = isActive && adjacent && cell.type !== 'wall' && isVisible;
 
                   let cellClass = 'cell-fog';
                   if (isPlayer) cellClass = 'cell-player';

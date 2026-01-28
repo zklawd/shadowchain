@@ -1,9 +1,14 @@
 /**
  * Browser-based ZK proof generation using Noir 1.0.0-beta.18 + Barretenberg.
  *
- * Lazily initializes WASM-based Noir execution engine and Barretenberg
- * UltraHonk proving backend, then exposes a simple API for generating
- * valid_move proofs in the browser.
+ * Supports all 4 ShadowChain circuits:
+ *   - position_commit: prove commitment = hash(x, y, salt)
+ *   - valid_move: prove adjacent move with correct commitments
+ *   - claim_artifact: prove player is at a treasure cell
+ *   - combat_reveal: prove stats derived from base + artifacts
+ *
+ * Each circuit gets its own Noir executor + UltraHonk backend instance,
+ * sharing a single Barretenberg WASM instance.
  */
 
 import type { Position } from '@/types/game';
@@ -25,73 +30,225 @@ export interface MoveProofResult {
   newCommitment: string;
 }
 
+export interface PositionCommitInputs {
+  x: number;
+  y: number;
+  salt: bigint;
+}
+
+export interface PositionCommitResult {
+  proof: Uint8Array;
+  publicInputs: string[];
+  commitment: string;
+}
+
+export interface ClaimArtifactInputs {
+  x: number;
+  y: number;
+  salt: bigint;
+  artifactId: number;
+}
+
+export interface ClaimArtifactResult {
+  proof: Uint8Array;
+  publicInputs: string[];
+  commitment: string;
+  artifactCellHash: string;
+}
+
+export interface CombatRevealInputs {
+  x: number;
+  y: number;
+  salt: bigint;
+  playerSalt: bigint;
+  artifactIds: number[]; // length 4, padded with 0s
+  gameId: bigint;
+}
+
+export interface CombatRevealResult {
+  proof: Uint8Array;
+  publicInputs: string[];
+  commitment: string;
+  statsCommitment: string;
+}
+
+// ── Circuit names ────────────────────────────────────────
+
+type CircuitName = 'position_commit' | 'valid_move' | 'claim_artifact' | 'combat_reveal';
+
 // ── Internal state ───────────────────────────────────────
 
-let _initialized = false;
-let _initPromise: Promise<void> | null = null;
-let _noir: any = null;
-let _backend: any = null;
-let _bb: any = null; // Barretenberg instance for crypto utils
+let _wasmInitialized = false;
+let _wasmInitPromise: Promise<void> | null = null;
+let _bb: any = null; // Shared Barretenberg instance
 
-// ── Initialization ───────────────────────────────────────
-
-async function _init(): Promise<void> {
-  console.log('[ZK] Initializing WASM prover…');
-
-  // 1. Initialize WASM modules from public/ folder
-  const [{ default: initACVM }, { default: initNoirC }] = await Promise.all([
-    import('@noir-lang/acvm_js'),
-    import('@noir-lang/noirc_abi'),
-  ]);
-
-  await Promise.all([
-    initACVM(fetch('/wasm/acvm_js_bg.wasm')),
-    initNoirC(fetch('/wasm/noirc_abi_wasm_bg.wasm')),
-  ]);
-  console.log('[ZK] WASM modules initialized');
-
-  // 2. Load the compiled circuit artifact
-  const res = await fetch('/circuits/valid_move.json');
-  if (!res.ok) throw new Error(`Failed to load circuit: ${res.status}`);
-  const circuit = await res.json();
-  console.log('[ZK] Circuit loaded:', circuit.noir_version);
-
-  // 3. Instantiate Noir executor
-  const { Noir } = await import('@noir-lang/noir_js');
-  _noir = new Noir(circuit);
-
-  // 4. Instantiate Barretenberg
-  const { Barretenberg, UltraHonkBackend } = await import('@aztec/bb.js');
-  _bb = await Barretenberg.new();
-  _backend = new UltraHonkBackend(circuit.bytecode, _bb);
-
-  console.log('[ZK] Prover ready (UltraHonk backend)');
+interface CircuitState {
+  noir: any;    // Noir executor
+  backend: any; // UltraHonkBackend
 }
 
-/**
- * Ensure the prover is initialized. Safe to call multiple times.
- */
-export async function initProver(): Promise<void> {
-  if (_initialized) return;
-  if (!_initPromise) {
-    _initPromise = _init().then(() => {
-      _initialized = true;
-    }).catch((err) => {
-      _initPromise = null; // allow retry on failure
-      throw err;
-    });
+const _circuits: Map<CircuitName, CircuitState> = new Map();
+const _circuitLoadPromises: Map<CircuitName, Promise<CircuitState>> = new Map();
+
+// ── WASM Initialization ─────────────────────────────────
+
+async function _initWasm(): Promise<void> {
+  if (_wasmInitialized) return;
+  if (_wasmInitPromise) return _wasmInitPromise;
+
+  _wasmInitPromise = (async () => {
+    console.log('[ZK] Initializing WASM modules…');
+
+    // Initialize ACVM and NoirC WASM from public/ folder
+    const [{ default: initACVM }, { default: initNoirC }] = await Promise.all([
+      import('@noir-lang/acvm_js'),
+      import('@noir-lang/noirc_abi'),
+    ]);
+
+    await Promise.all([
+      initACVM(fetch('/wasm/acvm_js_bg.wasm')),
+      initNoirC(fetch('/wasm/noirc_abi_wasm_bg.wasm')),
+    ]);
+
+    console.log('[ZK] WASM modules initialized');
+    _wasmInitialized = true;
+  })();
+
+  try {
+    await _wasmInitPromise;
+  } catch (err) {
+    _wasmInitPromise = null; // allow retry
+    throw err;
   }
-  return _initPromise;
+}
+
+// ── Barretenberg Singleton ──────────────────────────────
+
+async function _getBB(): Promise<any> {
+  if (_bb) return _bb;
+
+  const { Barretenberg } = await import('@aztec/bb.js');
+  _bb = await Barretenberg.new();
+  console.log('[ZK] Barretenberg instance created');
+  return _bb;
+}
+
+// ── Circuit Loading ─────────────────────────────────────
+
+async function _loadCircuit(name: CircuitName): Promise<CircuitState> {
+  if (_circuits.has(name)) return _circuits.get(name)!;
+  if (_circuitLoadPromises.has(name)) return _circuitLoadPromises.get(name)!;
+
+  const promise = (async () => {
+    console.log(`[ZK] Loading circuit: ${name}`);
+
+    // Ensure WASM is initialized first
+    await _initWasm();
+
+    // Load the compiled circuit artifact
+    const res = await fetch(`/circuits/${name}.json`);
+    if (!res.ok) throw new Error(`Failed to load circuit ${name}: ${res.status}`);
+    const circuit = await res.json();
+    console.log(`[ZK] Circuit ${name} loaded (noir_version: ${circuit.noir_version})`);
+
+    // Create Noir executor
+    const { Noir } = await import('@noir-lang/noir_js');
+    const noir = new Noir(circuit);
+
+    // Create UltraHonk backend (shares the Barretenberg instance)
+    const bb = await _getBB();
+    const { UltraHonkBackend } = await import('@aztec/bb.js');
+    const backend = new UltraHonkBackend(circuit.bytecode, bb);
+
+    const state: CircuitState = { noir, backend };
+    _circuits.set(name, state);
+    _circuitLoadPromises.delete(name);
+    console.log(`[ZK] Circuit ${name} ready`);
+    return state;
+  })();
+
+  _circuitLoadPromises.set(name, promise);
+
+  try {
+    return await promise;
+  } catch (err) {
+    _circuitLoadPromises.delete(name);
+    throw err;
+  }
+}
+
+// ── Public Initialization API ───────────────────────────
+
+/**
+ * Pre-initialize the prover. Loads WASM + Barretenberg.
+ * Optionally pre-loads specific circuits.
+ */
+export async function initProver(circuits?: CircuitName[]): Promise<void> {
+  await _initWasm();
+  await _getBB();
+
+  if (circuits) {
+    await Promise.all(circuits.map((c) => _loadCircuit(c)));
+  }
 }
 
 /**
- * Check if the prover has finished initializing.
+ * Check if the base WASM prover is ready.
  */
 export function isProverReady(): boolean {
-  return _initialized;
+  return _wasmInitialized && _bb !== null;
 }
 
-// ── Proof generation ─────────────────────────────────────
+/**
+ * Check if a specific circuit is loaded.
+ */
+export function isCircuitReady(name: CircuitName): boolean {
+  return _circuits.has(name);
+}
+
+// ── Position Commit Proof ───────────────────────────────
+
+/**
+ * Generate a ZK proof for position commitment.
+ * Proves: commitment = hash(x, y, salt) without revealing x, y, salt.
+ *
+ * Used when joining a game.
+ */
+export async function generatePositionCommitProof(
+  inputs: PositionCommitInputs
+): Promise<PositionCommitResult> {
+  const { noir, backend } = await _loadCircuit('position_commit');
+  const { x, y, salt } = inputs;
+
+  // Compute commitment
+  const commitment = await computePedersenHash([
+    BigInt(x),
+    BigInt(y),
+    salt,
+  ]);
+
+  const circuitInputs = {
+    x: toFieldHex(BigInt(x)),
+    y: toFieldHex(BigInt(y)),
+    salt: toFieldHex(salt),
+    commitment,
+  };
+
+  console.log('[ZK] Generating position_commit proof…', { x, y });
+
+  const { witness } = await noir.execute(circuitInputs);
+  const proof = await backend.generateProof(witness);
+
+  console.log('[ZK] position_commit proof generated!', { proofBytes: proof.proof.length });
+
+  return {
+    proof: proof.proof,
+    publicInputs: [commitment],
+    commitment,
+  };
+}
+
+// ── Valid Move Proof ────────────────────────────────────
 
 /**
  * Generate a ZK proof for a valid move.
@@ -100,12 +257,10 @@ export function isProverReady(): boolean {
  * Public inputs: old commitment, new commitment, map wall bitmasks
  */
 export async function generateMoveProof(inputs: MoveProofInputs): Promise<MoveProofResult> {
-  await initProver();
-
+  const { noir, backend } = await _loadCircuit('valid_move');
   const { oldPos, newPos, oldSalt, newSalt, mapWalls } = inputs;
 
-  // Compute Pedersen commitments using Barretenberg
-  // Noir's pedersen_hash([x, y, salt]) with default separator (hashIndex=0)
+  // Compute Pedersen commitments
   const oldCommitment = await computePedersenHash([
     BigInt(oldPos.x),
     BigInt(oldPos.y),
@@ -120,7 +275,6 @@ export async function generateMoveProof(inputs: MoveProofInputs): Promise<MovePr
   // Format map_walls as array of field strings
   const mapWallsArr = mapWalls.map((w) => toFieldHex(w));
 
-  // Build the full circuit inputs
   const circuitInputs = {
     old_x: toFieldHex(BigInt(oldPos.x)),
     old_y: toFieldHex(BigInt(oldPos.y)),
@@ -133,18 +287,15 @@ export async function generateMoveProof(inputs: MoveProofInputs): Promise<MovePr
     map_walls: mapWallsArr,
   };
 
-  console.log('[ZK] Executing circuit…', {
+  console.log('[ZK] Generating valid_move proof…', {
     from: `(${oldPos.x}, ${oldPos.y})`,
     to: `(${newPos.x}, ${newPos.y})`,
   });
 
-  // Execute circuit to generate witness
-  const { witness } = await _noir.execute(circuitInputs);
-  console.log('[ZK] Witness generated, proving…');
+  const { witness } = await noir.execute(circuitInputs);
+  const proof = await backend.generateProof(witness);
 
-  // Generate UltraHonk proof
-  const proof = await _backend.generateProof(witness);
-  console.log('[ZK] Proof generated!', { proofBytes: proof.proof.length });
+  console.log('[ZK] valid_move proof generated!', { proofBytes: proof.proof.length });
 
   return {
     proof: proof.proof,
@@ -154,30 +305,160 @@ export async function generateMoveProof(inputs: MoveProofInputs): Promise<MovePr
   };
 }
 
+// ── Claim Artifact Proof ────────────────────────────────
+
+/**
+ * Generate a ZK proof for claiming an artifact.
+ * Proves the player is at a specific treasure cell.
+ *
+ * Private inputs: x, y, salt
+ * Public inputs: commitment, artifact_cell_hash, artifact_id
+ */
+export async function generateClaimArtifactProof(
+  inputs: ClaimArtifactInputs
+): Promise<ClaimArtifactResult> {
+  const { noir, backend } = await _loadCircuit('claim_artifact');
+  const { x, y, salt, artifactId } = inputs;
+
+  // Compute position commitment = hash(x, y, salt)
+  const commitment = await computePedersenHash([
+    BigInt(x),
+    BigInt(y),
+    salt,
+  ]);
+
+  // Compute cell hash = hash(x, y) — no salt, public knowledge
+  const artifactCellHash = await computePedersenHash([
+    BigInt(x),
+    BigInt(y),
+  ]);
+
+  const circuitInputs = {
+    x: toFieldHex(BigInt(x)),
+    y: toFieldHex(BigInt(y)),
+    salt: toFieldHex(salt),
+    commitment,
+    artifact_cell_hash: artifactCellHash,
+    artifact_id: toFieldHex(BigInt(artifactId)),
+  };
+
+  console.log('[ZK] Generating claim_artifact proof…', { x, y, artifactId });
+
+  const { witness } = await noir.execute(circuitInputs);
+  const proof = await backend.generateProof(witness);
+
+  console.log('[ZK] claim_artifact proof generated!', { proofBytes: proof.proof.length });
+
+  return {
+    proof: proof.proof,
+    publicInputs: [commitment, artifactCellHash, toFieldHex(BigInt(artifactId))],
+    commitment,
+    artifactCellHash,
+  };
+}
+
+// ── Combat Reveal Proof ─────────────────────────────────
+
+/**
+ * Generate a ZK proof revealing combat stats.
+ * Proves player's HP/ATK/DEF are correctly derived from base stats + collected artifacts.
+ *
+ * Private inputs: x, y, salt, player_salt, artifact_ids[4]
+ * Public inputs: commitment, stats_commitment, game_id
+ */
+export async function generateCombatRevealProof(
+  inputs: CombatRevealInputs
+): Promise<CombatRevealResult> {
+  const { noir, backend } = await _loadCircuit('combat_reveal');
+  const { x, y, salt, playerSalt, artifactIds, gameId } = inputs;
+
+  // Pad artifact_ids to length 4
+  const paddedArtifacts = [...artifactIds];
+  while (paddedArtifacts.length < 4) paddedArtifacts.push(0);
+  if (paddedArtifacts.length > 4) throw new Error('Too many artifacts (max 4)');
+
+  // Compute position commitment
+  const commitment = await computePedersenHash([
+    BigInt(x),
+    BigInt(y),
+    salt,
+  ]);
+
+  // Compute stats from base + artifacts (mirrors the circuit logic)
+  let hp = 100, attack = 10, defense = 5; // BASE_HP, BASE_ATTACK, BASE_DEFENSE
+  const ARTIFACT_BONUSES: Record<number, [number, number, number]> = {
+    0: [0, 0, 0],
+    1: [20, 0, 0],  // HP Potion
+    2: [0, 5, 0],   // Sharp Blade
+    3: [0, 0, 5],   // Iron Shield
+    4: [10, 3, 3],  // War Relic
+  };
+  for (const aid of paddedArtifacts) {
+    const [hpB, atkB, defB] = ARTIFACT_BONUSES[aid] ?? [0, 0, 0];
+    hp += hpB;
+    attack += atkB;
+    defense += defB;
+  }
+
+  // Compute stats commitment = hash(hp, attack, defense, player_salt)
+  const statsCommitment = await computePedersenHash([
+    BigInt(hp),
+    BigInt(attack),
+    BigInt(defense),
+    playerSalt,
+  ]);
+
+  const circuitInputs = {
+    x: toFieldHex(BigInt(x)),
+    y: toFieldHex(BigInt(y)),
+    salt: toFieldHex(salt),
+    player_salt: toFieldHex(playerSalt),
+    artifact_ids: paddedArtifacts.map((id) => String(id)),
+    commitment,
+    stats_commitment: statsCommitment,
+    game_id: toFieldHex(gameId),
+  };
+
+  console.log('[ZK] Generating combat_reveal proof…', { x, y, gameId: gameId.toString(), hp, attack, defense });
+
+  const { witness } = await noir.execute(circuitInputs);
+  const proof = await backend.generateProof(witness);
+
+  console.log('[ZK] combat_reveal proof generated!', { proofBytes: proof.proof.length });
+
+  return {
+    proof: proof.proof,
+    publicInputs: [commitment, statsCommitment, toFieldHex(gameId)],
+    commitment,
+    statsCommitment,
+  };
+}
+
+// ── Verification (for debugging) ────────────────────────
+
 /**
  * Verify a proof locally (useful for debugging).
  */
-export async function verifyMoveProof(proof: any): Promise<boolean> {
-  await initProver();
+export async function verifyProof(circuitName: CircuitName, proofData: any): Promise<boolean> {
+  const { backend } = await _loadCircuit(circuitName);
   try {
-    return await _backend.verifyProof(proof);
+    return await backend.verifyProof(proofData);
   } catch (err) {
-    console.error('[ZK] Proof verification failed:', err);
+    console.error(`[ZK] ${circuitName} proof verification failed:`, err);
     return false;
   }
 }
 
-// ── Crypto helpers ───────────────────────────────────────
+// ── Crypto Helpers ──────────────────────────────────────
 
 /**
  * Compute Pedersen hash using Barretenberg.
  * Matches Noir's `std::hash::pedersen_hash` with default separator (0).
- *
- * bb.pedersenHash({ inputs: Uint8Array[], hashIndex: number }) → { hash: Uint8Array }
  */
-async function computePedersenHash(inputs: bigint[]): Promise<string> {
+export async function computePedersenHash(inputs: bigint[]): Promise<string> {
+  const bb = await _getBB();
   const frInputs = inputs.map((v) => bigintToFr(v));
-  const result = await _bb.pedersenHash({ inputs: frInputs, hashIndex: 0 });
+  const result = await bb.pedersenHash({ inputs: frInputs, hashIndex: 0 });
   return frToHex(result.hash);
 }
 
@@ -201,9 +482,9 @@ function frToHex(fr: Uint8Array): string {
 }
 
 /**
- * Convert a bigint to a 0x-prefixed hex string (field element).
+ * Convert a bigint to a 0x-prefixed hex string (field element, 32 bytes).
  */
-function toFieldHex(value: bigint): string {
+export function toFieldHex(value: bigint): string {
   return '0x' + value.toString(16).padStart(64, '0');
 }
 
@@ -219,4 +500,22 @@ export function randomSalt(): bigint {
     result = (result << BigInt(8)) | BigInt(b);
   }
   return result;
+}
+
+/**
+ * Convert a proof Uint8Array to a hex string for on-chain submission.
+ */
+export function proofToHex(proof: Uint8Array): `0x${string}` {
+  return ('0x' + Array.from(proof).map((b) => b.toString(16).padStart(2, '0')).join('')) as `0x${string}`;
+}
+
+/**
+ * Convert publicInputs string array to bytes32[] for on-chain submission.
+ */
+export function publicInputsToBytes32(inputs: string[]): `0x${string}`[] {
+  return inputs.map((s) => {
+    // Ensure each input is padded to 32 bytes (64 hex chars)
+    const clean = s.startsWith('0x') ? s.slice(2) : s;
+    return ('0x' + clean.padStart(64, '0')) as `0x${string}`;
+  });
 }

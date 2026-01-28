@@ -3,11 +3,8 @@ import { http } from 'wagmi';
 import { sepolia } from 'wagmi/chains';
 
 // WalletConnect Cloud project ID
-// Get yours free at https://cloud.walletconnect.com
-// Without a real ID, WalletConnect-based wallets won't work,
-// but injected wallets (MetaMask, Rabby, etc.) work fine.
 const WALLETCONNECT_PROJECT_ID =
-  process.env.NEXT_PUBLIC_WC_PROJECT_ID || '0'.repeat(32);
+  process.env.NEXT_PUBLIC_WC_PROJECT_ID || '1ff47d6e1976d616ee7d1a23857bfe94';
 
 export const config = getDefaultConfig({
   appName: 'ShadowChain',
@@ -16,6 +13,5 @@ export const config = getDefaultConfig({
   transports: {
     [sepolia.id]: http('https://ethereum-sepolia-rpc.publicnode.com'),
   },
-  // ssr must be false for static export (output: 'export')
   ssr: false,
 });

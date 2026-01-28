@@ -3,12 +3,14 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import WalletConnect from '@/components/WalletConnect';
+import { useGameStats } from '@/lib/useGameStats';
 
 const GLITCH_CHARS = '01アイウエオカキクケコ█▓▒░';
 
 export default function LandingPage() {
   const [title, setTitle] = useState('ShadowChain');
   const [mounted, setMounted] = useState(false);
+  const { stats, isLoading: statsLoading } = useGameStats();
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -134,10 +136,10 @@ export default function LandingPage() {
             style={{ animationDelay: '0.65s', opacity: 0 }}
           >
             {[
-              { label: 'Active Games', value: '12' },
-              { label: 'Players Online', value: '47' },
-              { label: 'Total Pot', value: '8.4 ETH' },
-              { label: 'Proofs Verified', value: '2,847' },
+              { label: 'Active Games', value: statsLoading ? '—' : stats.activeGames },
+              { label: 'Players Online', value: statsLoading ? '—' : stats.totalPlayers },
+              { label: 'Total Pot', value: statsLoading ? '—' : stats.totalPot },
+              { label: 'Proofs Verified', value: statsLoading ? '—' : stats.proofsVerified },
             ].map((s) => (
               <div key={s.label} className="text-center">
                 <div className="text-lg sm:text-xl font-bold text-white">{s.value}</div>

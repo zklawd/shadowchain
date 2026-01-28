@@ -30,8 +30,10 @@ fn main(
     assert(computed_cell_hash == artifact_cell_hash, "Player is not at artifact cell");
 
     // artifact_id is a public input that identifies which artifact is being claimed.
-    // The contract uses it to track claims. We constrain it to be non-zero.
+    // The contract uses it to track claims. Must be in range [1, 8].
     assert(artifact_id != 0, "Invalid artifact ID");
+    let aid = artifact_id as u32;
+    assert(aid <= 8, "Artifact ID out of range");
 }
 
 /// Helper: compute a position commitment
@@ -120,4 +122,16 @@ fn test_zero_artifact_id_fails() {
     let cell_hash = compute_cell_hash(x, y);
 
     main(x, y, salt, commitment, cell_hash, 0);
+}
+
+#[test(should_fail_with = "Artifact ID out of range")]
+fn test_artifact_id_too_high_fails() {
+    let x: Field = 10;
+    let y: Field = 3;
+    let salt: Field = 42;
+
+    let commitment = compute_commitment(x, y, salt);
+    let cell_hash = compute_cell_hash(x, y);
+
+    main(x, y, salt, commitment, cell_hash, 99);
 }

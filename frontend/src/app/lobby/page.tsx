@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { useReadContract, useReadContracts, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseEther, formatEther } from 'viem';
@@ -28,13 +28,22 @@ function StatusBadge({ status }: { status: LobbyGame['status'] }) {
 
 /* ── Create Game modal ────────────────────────────────── */
 
-function CreateGameModal({ onClose }: { onClose: () => void }) {
+function CreateGameModal({ onClose, onCreated }: { onClose: () => void; onCreated?: () => void }) {
   const [fee, setFee] = useState('0.01');
-  const [maxP, setMaxP] = useState('4');
+  const [maxP, setMaxP] = useState('2');
   const pot = (parseFloat(fee || '0') * parseInt(maxP || '0')).toFixed(4);
 
   const { writeContract, data: txHash, isPending: isWriting, error: writeError } = useWriteContract();
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: txHash });
+
+  // Auto-close modal after tx confirms + refetch game list
+  useEffect(() => {
+    if (isConfirmed) {
+      onCreated?.();
+      const t = setTimeout(() => onClose(), 1200);
+      return () => clearTimeout(t);
+    }
+  }, [isConfirmed, onClose, onCreated]);
 
   const handleCreate = () => {
     const seed = BigInt(Math.floor(Math.random() * 2 ** 64));
@@ -138,9 +147,9 @@ interface OnChainGame {
   prizePool: string;
 }
 
-function useOnChainGames(): { games: OnChainGame[]; isLoading: boolean; error: Error | null } {
+function useOnChainGames(): { games: OnChainGame[]; isLoading: boolean; error: Error | null; refetch: () => void } {
   // Read nextGameId to know how many games exist
-  const { data: nextGameId, isLoading: loadingId, error: idError } = useReadContract({
+  const { data: nextGameId, isLoading: loadingId, error: idError, refetch: refetchId } = useReadContract({
     ...shadowChainGameConfig,
     functionName: 'nextGameId',
   });
@@ -149,18 +158,22 @@ function useOnChainGames(): { games: OnChainGame[]; isLoading: boolean; error: E
 
   // Build contracts array for batch read
   const gameContracts = useMemo(() => {
-    if (gameCount === 0) return [];
-    return Array.from({ length: gameCount }, (_, i) => ({
+    if (gameCount <= 1) return [];
+    return Array.from({ length: gameCount - 1 }, (_, i) => ({
       ...shadowChainGameConfig,
       functionName: 'getGame' as const,
-      args: [BigInt(i)] as const,
+      args: [BigInt(i + 1)] as const,
     }));
   }, [gameCount]);
 
-  const { data: gamesData, isLoading: loadingGames, error: gamesError } = useReadContracts({
+  const { data: gamesData, isLoading: loadingGames, error: gamesError, refetch: refetchGames } = useReadContracts({
     contracts: gameContracts,
     query: { enabled: gameCount > 0 },
   });
+
+  const refetch = () => {
+    refetchId().then(() => refetchGames());
+  };
 
   const games = useMemo(() => {
     if (!gamesData) return [];
@@ -202,6 +215,7 @@ function useOnChainGames(): { games: OnChainGame[]; isLoading: boolean; error: E
     games,
     isLoading: loadingId || loadingGames,
     error: (idError || gamesError) as Error | null,
+    refetch,
   };
 }
 
@@ -211,7 +225,7 @@ export default function LobbyPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [filter, setFilter] = useState<'all' | 'waiting' | 'active' | 'ended'>('all');
 
-  const { games: onChainGames, isLoading, error } = useOnChainGames();
+  const { games: onChainGames, isLoading, error, refetch } = useOnChainGames();
 
   const allGames = onChainGames;
   const filteredGames = filter === 'all' ? allGames : allGames.filter((g) => g.status === filter);
@@ -372,7 +386,7 @@ export default function LobbyPage() {
         )}
       </main>
 
-      {showCreate && <CreateGameModal onClose={() => setShowCreate(false)} />}
+      {showCreate && <CreateGameModal onClose={() => setShowCreate(false)} onCreated={refetch} />}
     </div>
   );
 }
