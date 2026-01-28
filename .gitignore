@@ -2,6 +2,10 @@
 circuits/*/target/
 circuits/*/proofs/
 
+# WASM files are copied at build time, but circuit JSON is committed
+!frontend/public/circuits/
+frontend/public/wasm/
+
 # Foundry
 contracts/out/
 contracts/cache/

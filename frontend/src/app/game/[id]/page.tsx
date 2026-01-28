@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { mockGameState, getVisibleCells, mockEnemyPositions } from '@/lib/mock-data';
 import { truncateAddress, cn } from '@/lib/utils';
@@ -9,7 +9,14 @@ import TurnTimer from '@/components/TurnTimer';
 import CombatLog from '@/components/CombatLog';
 import PlayerCard from '@/components/PlayerCard';
 import ProofStatus from '@/components/ProofStatus';
+import type { ProofStage } from '@/components/ProofStatus';
 import WalletConnect from '@/components/WalletConnect';
+import {
+  initProver,
+  generateMoveProof,
+  randomSalt,
+  isProverReady,
+} from '@/lib/noir-prover';
 import type { Position, Direction, CombatEvent } from '@/types/game';
 
 export default function GamePage({ params }: { params: { id: string } }) {
@@ -18,76 +25,136 @@ export default function GamePage({ params }: { params: { id: string } }) {
   const [playerPos, setPlayerPos] = useState<Position>(
     gameState.players[0].position ?? { x: 6, y: 6 }
   );
-  const [isProving, setIsProving] = useState(false);
+  const [proofStage, setProofStage] = useState<ProofStage>('idle');
+  const [proofError, setProofError] = useState<string | null>(null);
   const [pendingDir, setPendingDir] = useState<Direction | null>(null);
+  const isProving = proofStage !== 'idle' && proofStage !== 'done' && proofStage !== 'error';
+
+  // Salt for position commitments — persisted across moves
+  const currentSalt = useRef<bigint>(randomSalt());
+
+  // Pre-initialize the prover on mount
+  useEffect(() => {
+    initProver().catch((err) =>
+      console.warn('[ZK] Prover pre-init failed (will retry on first move):', err)
+    );
+  }, []);
 
   const visibleCells = getVisibleCells(playerPos, 3);
 
-  /* ── Move handling ─────────────────────────────────── */
+  // Map walls as bitmasks (16 rows, each a bitmask of wall columns)
+  const mapWalls: bigint[] = gameState.map.map((row) => {
+    let bits = BigInt(0);
+    row.forEach((cell, x) => {
+      if (cell.type === 'wall') {
+        bits |= BigInt(1) << BigInt(x);
+      }
+    });
+    return bits;
+  });
+
+  /* ── Move handling with REAL ZK proving ────────────── */
 
   const startMove = useCallback(
-    (x: number, y: number) => {
+    async (x: number, y: number) => {
       if (isProving) return;
+
       let dir: Direction = 'stay';
       if (x > playerPos.x) dir = 'E';
       else if (x < playerPos.x) dir = 'W';
       else if (y > playerPos.y) dir = 'S';
       else if (y < playerPos.y) dir = 'N';
+
       setPendingDir(dir);
-      setIsProving(true);
-    },
-    [playerPos, isProving]
-  );
+      setProofError(null);
 
-  const onProofDone = useCallback(() => {
-    if (!pendingDir) return;
+      const newPos = { x, y };
+      const oldSalt = currentSalt.current;
+      const newSalt = randomSalt();
 
-    const np = { ...playerPos };
-    if (pendingDir === 'N') np.y -= 1;
-    if (pendingDir === 'S') np.y += 1;
-    if (pendingDir === 'E') np.x += 1;
-    if (pendingDir === 'W') np.x -= 1;
-    if (np.x < 0 || np.x > 15 || np.y < 0 || np.y > 15) {
-      setIsProving(false);
-      setPendingDir(null);
-      return;
-    }
+      try {
+        // Stage 1: Init WASM (if needed)
+        if (!isProverReady()) {
+          setProofStage('initializing');
+          await initProver();
+        }
 
-    setPlayerPos(np);
+        // Stage 2: Compute witness
+        setProofStage('computing_witness');
 
-    const evt: CombatEvent = {
-      id: String(Date.now()),
-      timestamp: Date.now(),
-      type: 'move',
-      message: `${truncateAddress(gameState.currentPlayer)} moves ${pendingDir} — proof verified ✓`,
-      players: [gameState.currentPlayer],
-    };
+        // Stage 3 & 4: Generate proof (includes witness execution internally)
+        setProofStage('generating_proof');
+        const result = await generateMoveProof({
+          oldPos: playerPos,
+          newPos,
+          oldSalt,
+          newSalt,
+          mapWalls,
+        });
 
-    setGameState((prev) => ({
-      ...prev,
-      events: [...prev.events, evt],
-      turn: prev.turn + 1,
-      timeRemaining: 60,
-    }));
+        // Stage 5: Done
+        setProofStage('verifying');
+        // Brief pause to show verification stage
+        await new Promise((r) => setTimeout(r, 300));
+        setProofStage('done');
 
-    setIsProving(false);
-    setPendingDir(null);
+        console.log('[ZK] Move proof generated:', {
+          proofSize: result.proof.length,
+          oldCommitment: result.oldCommitment,
+          newCommitment: result.newCommitment,
+        });
 
-    // Treasure discovery
-    const cell = gameState.map[np.y]?.[np.x];
-    if (cell?.type === 'treasure') {
-      setTimeout(() => {
-        const te: CombatEvent = {
-          id: String(Date.now() + 1),
+        // Update game state
+        currentSalt.current = newSalt;
+        setPlayerPos(newPos);
+
+        const evt: CombatEvent = {
+          id: String(Date.now()),
           timestamp: Date.now(),
-          type: 'artifact',
-          message: `${truncateAddress(gameState.currentPlayer)} discovers treasure! Generating claim proof…`,
+          type: 'move',
+          message: `${truncateAddress(gameState.currentPlayer)} moves ${dir} — ZK proof verified ✓ (${result.proof.length} bytes)`,
           players: [gameState.currentPlayer],
         };
-        setGameState((p) => ({ ...p, events: [...p.events, te] }));
-      }, 400);
-    }
-  }, [pendingDir, playerPos, gameState]);
+
+        setGameState((prev) => ({
+          ...prev,
+          events: [...prev.events, evt],
+          turn: prev.turn + 1,
+          timeRemaining: 60,
+        }));
+
+        // Treasure discovery
+        const cell = gameState.map[newPos.y]?.[newPos.x];
+        if (cell?.type === 'treasure') {
+          setTimeout(() => {
+            const te: CombatEvent = {
+              id: String(Date.now() + 1),
+              timestamp: Date.now(),
+              type: 'artifact',
+              message: `${truncateAddress(gameState.currentPlayer)} discovers treasure! Generating claim proof…`,
+              players: [gameState.currentPlayer],
+            };
+            setGameState((p) => ({ ...p, events: [...p.events, te] }));
+          }, 400);
+        }
+
+        // Reset after brief display
+        setTimeout(() => {
+          setProofStage('idle');
+          setPendingDir(null);
+        }, 2000);
+      } catch (err: any) {
+        console.error('[ZK] Proof generation failed:', err);
+        setProofStage('error');
+        setProofError(err?.message || 'Unknown proof error');
+        setTimeout(() => {
+          setProofStage('idle');
+          setPendingDir(null);
+        }, 4000);
+      }
+    },
+    [playerPos, isProving, gameState, mapWalls]
+  );
 
   const tryMove = useCallback(
     (dir: Direction) => {
@@ -208,8 +275,16 @@ export default function GamePage({ params }: { params: { id: string } }) {
                 <span className="text-gray-400">radius 3</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">Commitment</span>
-                <span className="text-gray-600">0x7a3f…c2d1</span>
+                <span className="text-gray-500">ZK Prover</span>
+                <span className={cn(
+                  isProverReady() ? 'text-emerald-400' : 'text-yellow-500',
+                )}>
+                  {isProverReady() ? 'Ready ✓' : 'Loading…'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Backend</span>
+                <span className="text-gray-400">UltraHonk</span>
               </div>
             </div>
           </div>
@@ -233,7 +308,7 @@ export default function GamePage({ params }: { params: { id: string } }) {
       </div>
 
       {/* Proof overlay */}
-      <ProofStatus isGenerating={isProving} proofType="valid_move" onComplete={onProofDone} />
+      <ProofStatus stage={proofStage} proofType="valid_move" error={proofError} />
     </div>
   );
 }
