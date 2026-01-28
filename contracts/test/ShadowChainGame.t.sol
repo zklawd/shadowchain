@@ -6,6 +6,7 @@ import {ShadowChainGame} from "../src/ShadowChainGame.sol";
 import {ArtifactRegistry} from "../src/ArtifactRegistry.sol";
 import {MockVerifier, RejectVerifier} from "../src/MockVerifier.sol";
 import {MapGenerator} from "../src/MapGenerator.sol";
+import {PoseidonT4} from "poseidon-solidity/PoseidonT4.sol";
 
 contract ShadowChainGameTest is Test {
     ShadowChainGame public game;
@@ -1062,12 +1063,13 @@ contract ShadowChainGameTest is Test {
         return 255; // Not found
     }
     
-    /// @notice Find first treasure cell using procedural generation
+    /// @notice Find first treasure cell using procedural generation (Poseidon)
     function _findFirstProceduralTreasure(bytes32 treasureSeed) internal pure returns (uint8 x, uint8 y) {
         for (uint8 _y = 0; _y < 16; _y++) {
             for (uint8 _x = 0; _x < 16; _x++) {
-                bytes32 cellHash = keccak256(abi.encodePacked(_x, _y, treasureSeed));
-                if (uint256(cellHash) % 256 < 20) { // TREASURE_THRESHOLD = 20
+                // Use Poseidon to match contract's isTreasure()
+                uint256 cellHash = PoseidonT4.hash([uint256(_x), uint256(_y), uint256(treasureSeed)]);
+                if (cellHash % 256 < 20) { // TREASURE_THRESHOLD = 20
                     return (_x, _y);
                 }
             }
