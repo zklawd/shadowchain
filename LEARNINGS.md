@@ -28,11 +28,36 @@ Problem: If treasure locations are deterministic from game seed, players can pre
 Solution: `treasureSeed = hash(gameSeed, player1Commit, player2Commit, ...)`
 Treasures only become determinable after ALL players commit their positions. Nobody can front-run.
 
-### Circuit-contract hash function mismatch is fine
-Circuits use Pedersen (efficient in ZK), contracts use keccak256 (cheap on EVM). For treasure verification:
-- Circuit is authoritative (proves player is at valid treasure)
-- Contract's `isTreasure()` view function is for UI convenience
-- They might disagree slightly — that's okay, proofs are what matter
+### ⚠️ CRITICAL: Circuit and contract MUST use the same hash function!
+**Original mistake:** I wrote that "circuit uses Pedersen, contract uses keccak256, they might disagree — that's fine."
+
+**Why that's WRONG:** If the frontend shows treasure at (5,10) using the contract's hash, but the circuit uses a different hash that says (5,10) is NOT a treasure, the player's proof will fail!
+
+**Solution:** Use **Poseidon** everywhere:
+- Efficient in ZK circuits (better than Pedersen for this use case)
+- Has Solidity implementation (`poseidon-solidity` npm package)
+- Noir's `poseidon::bn254` uses identical constants as Solidity
+
+```noir
+// Circuit
+use poseidon::poseidon::bn254::hash_3;
+let cell_hash = hash_3([x, y, treasure_seed]);
+```
+
+```solidity
+// Contract
+uint256 cellHash = PoseidonT4.hash([uint256(x), uint256(y), uint256(treasureSeed)]);
+```
+
+**Always write a cross-check test:**
+```noir
+#[test]
+fn test_cross_check_with_solidity() {
+    let hash = hash_3([5, 10, 12345]);
+    let expected: Field = 0x18f86d5a...;  // From Solidity call
+    assert(hash == expected, "CRITICAL: Hash mismatch!");
+}
+```
 
 ### Position commitments hide AND bind
 `commitment = hash(x, y, salt)` achieves two properties:
