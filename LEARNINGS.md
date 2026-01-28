@@ -113,6 +113,13 @@ assert(x_u8 < 16, "X out of bounds");
 ```
 Field elements are huge — always validate ranges.
 
+### Unconstrained helpers need `unsafe {}` blocks
+```noir
+// Safety: test-only unconstrained helper
+let (x, y) = unsafe { find_treasure_cell(seed) };
+```
+Noir 1.0+ requires explicit `unsafe` for calling unconstrained functions from constrained context. Add `// Safety:` comments to silence warnings.
+
 ---
 
 ## 6. Gas Optimization
