@@ -45,7 +45,7 @@ contract ShadowChainGame is ReentrancyGuard {
         uint256 entryFee;
         uint256 prizePool;
         uint256 wallBitmap;
-        uint256 treasureBitmap;
+        bytes32 treasureSeed;      // Computed on game start from all player commitments
         uint32 currentTurn;
         uint32 maxTurns;
         uint8 maxPlayers;
@@ -75,6 +75,7 @@ contract ShadowChainGame is ReentrancyGuard {
     uint32 public constant DEFAULT_MAX_TURNS = 50;   // turns until timer win
     uint8 public constant MIN_PLAYERS = 2;
     uint8 public constant MAX_PLAYERS_LIMIT = 8;
+    uint8 public constant TREASURE_THRESHOLD = 20;   // ~8% of cells have treasures (20/256)
 
     // =========================================================================
     //                               EVENTS
@@ -162,6 +163,9 @@ contract ShadowChainGame is ReentrancyGuard {
     /// @notice Game ID → player index → player address
     mapping(uint256 => mapping(uint8 => address)) public playerByIndex;
 
+    /// @notice Game ID → array of player commitments (for computing treasureSeed)
+    mapping(uint256 => bytes32[]) public gameCommitments;
+
     /// @notice Verifier contracts for each proof type
     IShadowVerifier public moveVerifier;
     IShadowVerifier public artifactVerifier;
@@ -204,7 +208,8 @@ contract ShadowChainGame is ReentrancyGuard {
 
         gameId = nextGameId++;
 
-        (uint256 wallBitmap, uint256 treasureBitmap) = MapGenerator.getMap(seed);
+        // Only get wall bitmap - treasures are procedurally determined after all players join
+        (uint256 wallBitmap, ) = MapGenerator.getMap(seed);
 
         Game storage g = games[gameId];
         g.id = gameId;
@@ -215,11 +220,7 @@ contract ShadowChainGame is ReentrancyGuard {
         g.creator = msg.sender;
         g.state = GameState.Created;
         g.wallBitmap = wallBitmap;
-        g.treasureBitmap = treasureBitmap;
-
-        // Assign artifacts to treasure cells
-        uint8[] memory treasureCells = _getTreasureCells(treasureBitmap);
-        artifactRegistry.assignArtifacts(gameId, seed, treasureCells);
+        // treasureSeed computed in _startGame after all players join
 
         emit GameCreated(gameId, msg.sender, seed, maxPlayers, entryFee);
     }
@@ -262,6 +263,9 @@ contract ShadowChainGame is ReentrancyGuard {
         p.status = PlayerStatus.Alive;
 
         playerByIndex[gameId][index] = msg.sender;
+        
+        // Store commitment for treasureSeed computation
+        gameCommitments[gameId].push(commitment);
 
         emit PlayerJoined(gameId, msg.sender, index);
 
@@ -314,14 +318,16 @@ contract ShadowChainGame is ReentrancyGuard {
         emit MoveSubmitted(gameId, msg.sender, g.currentTurn, newCommitment);
     }
 
-    /// @notice Claim an artifact at a treasure cell
+    /// @notice Claim an artifact at a treasure cell (procedurally generated)
     /// @param gameId The game ID
-    /// @param treasureCellIndex The cell index where the treasure is
-    /// @param proof ZK proof that the player is at the treasure cell
-    /// @param publicInputs Public inputs for the proof
+    /// @param cellX X coordinate of the treasure cell (0-15)
+    /// @param cellY Y coordinate of the treasure cell (0-15)
+    /// @param proof ZK proof that player is at a valid treasure cell
+    /// @param publicInputs Public inputs: [commitment, treasureSeed, artifactId]
     function claimArtifact(
         uint256 gameId,
-        uint8 treasureCellIndex,
+        uint8 cellX,
+        uint8 cellY,
         bytes calldata proof,
         bytes32[] calldata publicInputs
     ) external {
@@ -330,15 +336,20 @@ contract ShadowChainGame is ReentrancyGuard {
 
         require(g.state == GameState.Active, "Game not active");
         require(p.status == PlayerStatus.Alive, "Player not alive");
+        require(cellX < 16 && cellY < 16, "Invalid cell coordinates");
 
-        // Verify the treasure cell is valid
-        require((g.treasureBitmap >> treasureCellIndex) & 1 == 1, "Not a treasure cell");
-
-        // Verify ZK proof
+        // ZK proof verifies:
+        // 1. Player commitment matches their position (cellX, cellY)
+        // 2. hash(cellX, cellY, treasureSeed) % 256 < TREASURE_THRESHOLD
+        // 3. artifactId matches derived value
         require(artifactVerifier.verify(proof, publicInputs), "Invalid artifact proof");
 
-        // Claim the artifact via registry
-        uint8 artifactId = artifactRegistry.claimArtifact(gameId, msg.sender, treasureCellIndex);
+        // Derive artifact ID (must match what circuit proved)
+        uint8 artifactId = _getArtifactAtCell(cellX, cellY, g.treasureSeed);
+        
+        // Record claim via registry (uses cellIndex for tracking)
+        uint8 cellIndex = cellY * 16 + cellX;
+        artifactRegistry.claimArtifactProcedural(gameId, msg.sender, cellIndex, artifactId);
 
         // Update player stats
         ArtifactRegistry.Artifact memory art = artifactRegistry.getArtifact(artifactId);
@@ -351,7 +362,17 @@ contract ShadowChainGame is ReentrancyGuard {
         if (p.attack < 1) p.attack = 1;
         if (p.defense < 0) p.defense = 0;
 
-        emit ArtifactClaimedEvent(gameId, msg.sender, artifactId, treasureCellIndex);
+        emit ArtifactClaimedEvent(gameId, msg.sender, artifactId, cellIndex);
+    }
+    
+    /// @notice Derive artifact ID at a cell from treasureSeed (deterministic)
+    /// @param x X coordinate (0-15)
+    /// @param y Y coordinate (0-15)
+    /// @param treasureSeed The game's treasure seed
+    /// @return artifactId The artifact ID (1-8)
+    function _getArtifactAtCell(uint8 x, uint8 y, bytes32 treasureSeed) internal pure returns (uint8) {
+        bytes32 h = keccak256(abi.encodePacked(x, y, treasureSeed, "artifact"));
+        return uint8((uint256(h) % 8) + 1); // 1-indexed (1-8)
     }
 
     /// @notice Trigger combat with another player
@@ -492,10 +513,12 @@ contract ShadowChainGame is ReentrancyGuard {
         return players[gameId][addr];
     }
 
-    /// @notice Get the map bitmaps for a game
-    function getGameMap(uint256 gameId) external view returns (uint256 wallBitmap, uint256 treasureBitmap) {
+    /// @notice Get the map data for a game
+    /// @return wallBitmap Bitmap of wall cells (1 = wall)
+    /// @return treasureSeed Seed for procedural treasure generation (0 if game not started)
+    function getGameMap(uint256 gameId) external view returns (uint256 wallBitmap, bytes32 treasureSeed) {
         Game storage g = games[gameId];
-        return (g.wallBitmap, g.treasureBitmap);
+        return (g.wallBitmap, g.treasureSeed);
     }
 
     /// @notice Check if a cell is a wall
@@ -504,10 +527,31 @@ contract ShadowChainGame is ReentrancyGuard {
         return (games[gameId].wallBitmap >> idx) & 1 == 1;
     }
 
-    /// @notice Check if a cell is a treasure cell
+    /// @notice Check if a cell is a treasure cell (procedurally generated)
+    /// @dev Returns false if game hasn't started (treasureSeed not set)
     function isTreasure(uint256 gameId, uint8 x, uint8 y) external view returns (bool) {
-        uint8 idx = MapGenerator.cellIndex(x, y);
-        return (games[gameId].treasureBitmap >> idx) & 1 == 1;
+        bytes32 treasureSeed = games[gameId].treasureSeed;
+        if (treasureSeed == bytes32(0)) return false;
+        
+        bytes32 cellHash = keccak256(abi.encodePacked(x, y, treasureSeed));
+        return uint256(cellHash) % 256 < TREASURE_THRESHOLD;
+    }
+    
+    /// @notice Get artifact ID at a cell (procedurally generated)
+    /// @dev Returns 0 if not a treasure cell or game hasn't started
+    function getArtifactAtCell(uint256 gameId, uint8 x, uint8 y) external view returns (uint8) {
+        bytes32 treasureSeed = games[gameId].treasureSeed;
+        if (treasureSeed == bytes32(0)) return 0;
+        
+        bytes32 cellHash = keccak256(abi.encodePacked(x, y, treasureSeed));
+        if (uint256(cellHash) % 256 >= TREASURE_THRESHOLD) return 0;
+        
+        return _getArtifactAtCell(x, y, treasureSeed);
+    }
+    
+    /// @notice Get the treasure seed for a game (only set after game starts)
+    function getTreasureSeed(uint256 gameId) external view returns (bytes32) {
+        return games[gameId].treasureSeed;
     }
 
     // =========================================================================
@@ -516,6 +560,16 @@ contract ShadowChainGame is ReentrancyGuard {
 
     function _startGame(uint256 gameId) internal {
         Game storage g = games[gameId];
+        
+        // Compute treasureSeed from game seed + all player commitments
+        // This ensures nobody can precompute treasure locations until all players join
+        bytes32 seed = bytes32(g.seed);
+        bytes32[] storage commits = gameCommitments[gameId];
+        for (uint256 i = 0; i < commits.length; i++) {
+            seed = keccak256(abi.encodePacked(seed, commits[i]));
+        }
+        g.treasureSeed = seed;
+        
         g.state = GameState.Active;
         g.currentTurn = 1;
         g.turnDeadline = uint64(block.timestamp + TURN_DURATION);
@@ -578,25 +632,6 @@ contract ShadowChainGame is ReentrancyGuard {
         }
 
         emit GameResolved(gameId, winner, prize);
-    }
-
-    /// @dev Extract treasure cell indices from a bitmap
-    function _getTreasureCells(uint256 bitmap) internal pure returns (uint8[] memory) {
-        // Count set bits first
-        uint8 count = 0;
-        for (uint16 i = 0; i < 256; i++) {
-            if ((bitmap >> i) & 1 == 1) count++;
-        }
-
-        uint8[] memory cells = new uint8[](count);
-        uint8 idx = 0;
-        for (uint16 i = 0; i < 256; i++) {
-            if ((bitmap >> i) & 1 == 1) {
-                cells[idx++] = uint8(i);
-            }
-        }
-
-        return cells;
     }
 
     /// @notice Receive ETH (for prize payouts returning)

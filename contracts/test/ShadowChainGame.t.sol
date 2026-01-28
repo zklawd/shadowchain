@@ -166,11 +166,39 @@ contract ShadowChainGameTest is Test {
         vm.prank(creator);
         uint256 gameId = game.createGame(SEED, 2, 0);
 
-        (uint256 wallBitmap, uint256 treasureBitmap) = game.getGameMap(gameId);
-        (uint256 expectedWalls, uint256 expectedTreasures) = MapGenerator.getMap(SEED);
+        (uint256 wallBitmap, bytes32 treasureSeed) = game.getGameMap(gameId);
+        (uint256 expectedWalls, ) = MapGenerator.getMap(SEED);
 
         assertEq(wallBitmap, expectedWalls, "Walls should match MapGenerator");
-        assertEq(treasureBitmap, expectedTreasures, "Treasures should match MapGenerator");
+        assertEq(treasureSeed, bytes32(0), "TreasureSeed should be 0 before game starts");
+    }
+    
+    function test_treasureSeed_computedOnStart() public {
+        // Create a 2-player game (so auto-start triggers after both join)
+        vm.prank(creator);
+        uint256 gameId = game.createGame(SEED, 2, ENTRY_FEE);
+        
+        // Before start, treasureSeed is 0
+        (, bytes32 seedBefore) = game.getGameMap(gameId);
+        assertEq(seedBefore, bytes32(0), "TreasureSeed should be 0 before start");
+        
+        // Join both players to trigger auto-start
+        bytes32 commit1 = keccak256("alice_pos");
+        bytes32 commit2 = keccak256("bob_pos");
+        
+        vm.prank(alice);
+        game.joinGame{value: ENTRY_FEE}(gameId, commit1);
+        vm.prank(bob);
+        game.joinGame{value: ENTRY_FEE}(gameId, commit2);
+        
+        // After start, treasureSeed should be computed from seed + commitments
+        (, bytes32 seedAfter) = game.getGameMap(gameId);
+        assertTrue(seedAfter != bytes32(0), "TreasureSeed should be set after start");
+        
+        // Verify it's deterministic: hash(seed, commit1, commit2)
+        bytes32 expected = keccak256(abi.encodePacked(bytes32(SEED), commit1));
+        expected = keccak256(abi.encodePacked(expected, commit2));
+        assertEq(seedAfter, expected, "TreasureSeed should match expected computation");
     }
 
     // =========================================================================
@@ -426,45 +454,49 @@ contract ShadowChainGameTest is Test {
     function test_claimArtifact() public {
         uint256 gameId = _createAndStartGame();
 
-        // Find a treasure cell
-        ShadowChainGame.Game memory g = game.getGame(gameId);
-        uint8 treasureCell = _findFirstTreasureCell(g.treasureBitmap);
-        require(treasureCell != 255, "No treasure cells found");
+        // Find a treasure cell using procedural generation
+        (, bytes32 treasureSeed) = game.getGameMap(gameId);
+        (uint8 x, uint8 y) = _findFirstProceduralTreasure(treasureSeed);
+        require(x != 255, "No treasure cells found");
+        
+        uint8 cellIndex = y * 16 + x;
 
         vm.prank(alice);
-        game.claimArtifact(gameId, treasureCell, DUMMY_PROOF, DUMMY_INPUTS);
+        game.claimArtifact(gameId, x, y, DUMMY_PROOF, DUMMY_INPUTS);
 
         // Check artifact was claimed
-        address claimer = registry.claimedBy(gameId, treasureCell);
+        address claimer = registry.claimedBy(gameId, cellIndex);
         assertEq(claimer, alice);
     }
 
     function test_claimArtifact_emitsEvent() public {
         uint256 gameId = _createAndStartGame();
-        ShadowChainGame.Game memory g = game.getGame(gameId);
-        uint8 treasureCell = _findFirstTreasureCell(g.treasureBitmap);
+        (, bytes32 treasureSeed) = game.getGameMap(gameId);
+        (uint8 x, uint8 y) = _findFirstProceduralTreasure(treasureSeed);
+        uint8 cellIndex = y * 16 + x;
 
-        uint8 expectedArtifactId = registry.cellArtifact(gameId, treasureCell);
+        // Get expected artifact ID from contract helper
+        uint8 expectedArtifactId = game.getArtifactAtCell(gameId, x, y);
 
         vm.expectEmit(true, true, false, true);
-        emit ShadowChainGame.ArtifactClaimedEvent(gameId, alice, expectedArtifactId, treasureCell);
+        emit ShadowChainGame.ArtifactClaimedEvent(gameId, alice, expectedArtifactId, cellIndex);
 
         vm.prank(alice);
-        game.claimArtifact(gameId, treasureCell, DUMMY_PROOF, DUMMY_INPUTS);
+        game.claimArtifact(gameId, x, y, DUMMY_PROOF, DUMMY_INPUTS);
     }
 
     function test_claimArtifact_updatesStats() public {
         uint256 gameId = _createAndStartGame();
-        ShadowChainGame.Game memory g = game.getGame(gameId);
-        uint8 treasureCell = _findFirstTreasureCell(g.treasureBitmap);
+        (, bytes32 treasureSeed) = game.getGameMap(gameId);
+        (uint8 x, uint8 y) = _findFirstProceduralTreasure(treasureSeed);
 
-        uint8 artifactId = registry.cellArtifact(gameId, treasureCell);
+        uint8 artifactId = game.getArtifactAtCell(gameId, x, y);
         ArtifactRegistry.Artifact memory art = registry.getArtifact(artifactId);
 
         ShadowChainGame.Player memory before_ = game.getPlayer(gameId, alice);
 
         vm.prank(alice);
-        game.claimArtifact(gameId, treasureCell, DUMMY_PROOF, DUMMY_INPUTS);
+        game.claimArtifact(gameId, x, y, DUMMY_PROOF, DUMMY_INPUTS);
 
         ShadowChainGame.Player memory after_ = game.getPlayer(gameId, alice);
 
@@ -483,26 +515,26 @@ contract ShadowChainGameTest is Test {
         assertEq(after_.defense, expectedDef);
     }
 
-    function test_claimArtifact_notTreasureCell_reverts() public {
+    function test_claimArtifact_invalidCoords_reverts() public {
         uint256 gameId = _createAndStartGame();
 
-        // Cell 0 (0,0) is a spawn point, never a treasure
+        // Coordinates out of bounds should revert
         vm.prank(alice);
-        vm.expectRevert("Not a treasure cell");
-        game.claimArtifact(gameId, 0, DUMMY_PROOF, DUMMY_INPUTS);
+        vm.expectRevert("Invalid cell coordinates");
+        game.claimArtifact(gameId, 16, 0, DUMMY_PROOF, DUMMY_INPUTS);
     }
 
     function test_claimArtifact_alreadyClaimed_reverts() public {
         uint256 gameId = _createAndStartGame();
-        ShadowChainGame.Game memory g = game.getGame(gameId);
-        uint8 treasureCell = _findFirstTreasureCell(g.treasureBitmap);
+        (, bytes32 treasureSeed) = game.getGameMap(gameId);
+        (uint8 x, uint8 y) = _findFirstProceduralTreasure(treasureSeed);
 
         vm.prank(alice);
-        game.claimArtifact(gameId, treasureCell, DUMMY_PROOF, DUMMY_INPUTS);
+        game.claimArtifact(gameId, x, y, DUMMY_PROOF, DUMMY_INPUTS);
 
         vm.prank(bob);
         vm.expectRevert("ArtifactRegistry: already claimed");
-        game.claimArtifact(gameId, treasureCell, DUMMY_PROOF, DUMMY_INPUTS);
+        game.claimArtifact(gameId, x, y, DUMMY_PROOF, DUMMY_INPUTS);
     }
 
     function test_claimArtifact_gameNotActive_reverts() public {
@@ -511,7 +543,7 @@ contract ShadowChainGameTest is Test {
 
         vm.prank(alice);
         vm.expectRevert("Game not active");
-        game.claimArtifact(gameId, 100, DUMMY_PROOF, DUMMY_INPUTS);
+        game.claimArtifact(gameId, 5, 5, DUMMY_PROOF, DUMMY_INPUTS);
     }
 
     // =========================================================================
@@ -915,10 +947,10 @@ contract ShadowChainGameTest is Test {
 
     function test_getGameMap() public {
         uint256 gameId = _createGame();
-        (uint256 w, uint256 t) = game.getGameMap(gameId);
-        (uint256 ew, uint256 et) = MapGenerator.getMap(SEED);
+        (uint256 w, bytes32 treasureSeed) = game.getGameMap(gameId);
+        (uint256 ew, ) = MapGenerator.getMap(SEED);
         assertEq(w, ew);
-        assertEq(t, et);
+        assertEq(treasureSeed, bytes32(0), "TreasureSeed should be 0 before game starts");
     }
 
     // =========================================================================
@@ -954,10 +986,11 @@ contract ShadowChainGameTest is Test {
         assertEq(g.currentTurn, 2);
 
         // Turn 2: Alice claims an artifact
-        uint8 treasureCell = _findFirstTreasureCell(g.treasureBitmap);
-        if (treasureCell != 255) {
+        (, bytes32 treasureSeed) = game.getGameMap(gameId);
+        (uint8 tx, uint8 ty) = _findFirstProceduralTreasure(treasureSeed);
+        if (tx != 255) {
             vm.prank(alice);
-            game.claimArtifact(gameId, treasureCell, DUMMY_PROOF, DUMMY_INPUTS);
+            game.claimArtifact(gameId, tx, ty, DUMMY_PROOF, DUMMY_INPUTS);
         }
 
         // Turn 2: Bob submits a move
@@ -1027,5 +1060,18 @@ contract ShadowChainGameTest is Test {
             if ((bitmap >> i) & 1 == 1) return uint8(i);
         }
         return 255; // Not found
+    }
+    
+    /// @notice Find first treasure cell using procedural generation
+    function _findFirstProceduralTreasure(bytes32 treasureSeed) internal pure returns (uint8 x, uint8 y) {
+        for (uint8 _y = 0; _y < 16; _y++) {
+            for (uint8 _x = 0; _x < 16; _x++) {
+                bytes32 cellHash = keccak256(abi.encodePacked(_x, _y, treasureSeed));
+                if (uint256(cellHash) % 256 < 20) { // TREASURE_THRESHOLD = 20
+                    return (_x, _y);
+                }
+            }
+        }
+        return (255, 255); // Not found (unlikely with threshold 20)
     }
 }

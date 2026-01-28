@@ -109,7 +109,7 @@ contract ArtifactRegistry {
         }
     }
 
-    /// @notice Record an artifact claim by a player
+    /// @notice Record an artifact claim by a player (legacy: uses pre-assigned artifacts)
     /// @param gameId The game ID
     /// @param player The claiming player's address
     /// @param treasureCellIndex The cell index of the treasure
@@ -128,6 +128,26 @@ contract ArtifactRegistry {
         playerArtifacts[gameId][player].push(artifactId);
 
         emit ArtifactClaimed(gameId, player, artifactId, treasureCellIndex);
+    }
+    
+    /// @notice Record an artifact claim with procedurally generated artifact ID
+    /// @param gameId The game ID
+    /// @param player The claiming player's address
+    /// @param cellIndex The cell index (y * 16 + x)
+    /// @param artifactId The artifact ID (derived from treasureSeed by caller)
+    function claimArtifactProcedural(
+        uint256 gameId,
+        address player,
+        uint8 cellIndex,
+        uint8 artifactId
+    ) external {
+        require(claimedBy[gameId][cellIndex] == address(0), "ArtifactRegistry: already claimed");
+        require(artifactId >= 1 && artifactId <= NUM_ARTIFACTS, "ArtifactRegistry: invalid artifact ID");
+
+        claimedBy[gameId][cellIndex] = player;
+        playerArtifacts[gameId][player].push(artifactId);
+
+        emit ArtifactClaimed(gameId, player, artifactId, cellIndex);
     }
 
     // =========================================================================

@@ -164,8 +164,7 @@ library ValidMoveFrLib
         uint256 result;
 
         // Call the modexp precompile to invert in the field
-        assembly
-        {
+        assembly ("memory-safe") {
             let free := mload(0x40)
             mstore(free, 0x20)
             mstore(add(free, 0x20), 0x20)
@@ -189,8 +188,7 @@ library ValidMoveFrLib
         uint256 result;
 
         // Call the modexp precompile to invert in the field
-        assembly
-        {
+        assembly ("memory-safe") {
             let free := mload(0x40)
             mstore(free, 0x20)
             mstore(add(free, 0x20), 0x20)
@@ -1840,7 +1838,7 @@ abstract contract BaseHonkVerifier is IVerifier {
         Fr[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] memory scalars
     ) internal view returns (ValidMoveHonk.G1Point memory result) {
         uint256 limit = NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2;
-        assembly {
+        assembly ("memory-safe") {
             let success := 0x01
             let free := mload(0x40)
 
