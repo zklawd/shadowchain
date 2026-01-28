@@ -56,7 +56,7 @@ fn main(
     //    map_walls[row] is a bitmask where bit `col` = 1 means wall
     //    Check: (map_walls[new_y] >> new_x) & 1 == 0
     let row_bits = map_walls[ny as u32] as u32;
-    let bit = (row_bits >> (nx as u32)) & 1;
+    let bit = (row_bits >> (nx as u8)) & 1;
     assert(bit == 0, "New position is a wall");
 }
 
