@@ -614,18 +614,23 @@ export default function GamePage({ params }: { params: { id: string } }) {
           {gamePhase === 'waiting' && isPlayerInGame && isConnected && (
             <div className="p-3 border-b border-gray-800/50 space-y-2">
               <p className="text-xs text-emerald-400">✓ You&apos;ve joined this game</p>
-              {game && game.playerCount >= 2 && (
-                <button
-                  onClick={() => startGame()}
-                  disabled={isWriting || isConfirming}
-                  className={cn(
-                    'w-full py-2.5 bg-emerald-500/10 border border-emerald-500/40 text-emerald-400 text-sm font-semibold rounded-lg',
-                    'transition-all hover:bg-emerald-500/20 active:scale-[0.98]',
-                    (isWriting || isConfirming) && 'opacity-50 cursor-not-allowed'
-                  )}
-                >
-                  {isWriting ? 'Confirm…' : 'Start Game'}
-                </button>
+              {game && game.playerCount >= 2 && game.creator?.toLowerCase() === address?.toLowerCase() && (
+                <>
+                  <p className="text-[10px] text-gray-500">
+                    Waiting for {game.maxPlayers - game.playerCount} more player{game.maxPlayers - game.playerCount !== 1 ? 's' : ''}, or start now
+                  </p>
+                  <button
+                    onClick={() => startGame()}
+                    disabled={isWriting || isConfirming}
+                    className={cn(
+                      'w-full py-2.5 bg-emerald-500/10 border border-emerald-500/40 text-emerald-400 text-sm font-semibold rounded-lg',
+                      'transition-all hover:bg-emerald-500/20 active:scale-[0.98]',
+                      (isWriting || isConfirming) && 'opacity-50 cursor-not-allowed'
+                    )}
+                  >
+                    {isWriting ? 'Confirm…' : 'Start Game'}
+                  </button>
+                </>
               )}
             </div>
           )}
@@ -694,7 +699,11 @@ export default function GamePage({ params }: { params: { id: string } }) {
               {/* Forfeit */}
               <div className="p-3 border-b border-gray-800/50">
                 <button
-                  onClick={() => forfeit()}
+                  onClick={() => {
+                    if (window.confirm('Are you sure you want to forfeit? You will lose your entry fee and be eliminated.')) {
+                      forfeit();
+                    }
+                  }}
                   disabled={isWriting || isConfirming}
                   className={cn(
                     'w-full py-2 bg-red-500/5 border border-red-500/20 text-red-400/60 text-xs rounded-lg',
