@@ -36,6 +36,7 @@ jobs:
         env:
           NODE_OPTIONS: --max-old-space-size=4096
           NEXT_PUBLIC_BASE_PATH: /shadowchain
+          NEXT_PUBLIC_DEV_MODE: "true"
 
       - name: Prepare for GitHub Pages
         run: |
