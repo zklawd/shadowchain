@@ -1,6 +1,11 @@
+const isGHPages = process.env.GITHUB_ACTIONS === 'true';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'export',
+  // GitHub Pages serves from /shadowchain; Netlify/local from /
+  basePath: isGHPages ? '/shadowchain' : '',
+  assetPrefix: isGHPages ? '/shadowchain/' : '',
   eslint: { ignoreDuringBuilds: true },
   typescript: { ignoreBuildErrors: true },
   images: { unoptimized: true },

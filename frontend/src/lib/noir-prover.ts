@@ -76,6 +76,10 @@ export interface CombatRevealResult {
 
 type CircuitName = 'position_commit' | 'valid_move' | 'claim_artifact' | 'combat_reveal';
 
+// ── Base path for assets (GitHub Pages vs root) ─────
+
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || '';
+
 // ── Internal state ───────────────────────────────────────
 
 let _wasmInitialized = false;
@@ -106,8 +110,8 @@ async function _initWasm(): Promise<void> {
     ]);
 
     await Promise.all([
-      initACVM(fetch('/wasm/acvm_js_bg.wasm')),
-      initNoirC(fetch('/wasm/noirc_abi_wasm_bg.wasm')),
+      initACVM(fetch(`${BASE_PATH}/wasm/acvm_js_bg.wasm`)),
+      initNoirC(fetch(`${BASE_PATH}/wasm/noirc_abi_wasm_bg.wasm`)),
     ]);
 
     console.log('[ZK] WASM modules initialized');
@@ -146,7 +150,7 @@ async function _loadCircuit(name: CircuitName): Promise<CircuitState> {
     await _initWasm();
 
     // Load the compiled circuit artifact
-    const res = await fetch(`/circuits/${name}.json`);
+    const res = await fetch(`${BASE_PATH}/circuits/${name}.json`);
     if (!res.ok) throw new Error(`Failed to load circuit ${name}: ${res.status}`);
     const circuit = await res.json();
     console.log(`[ZK] Circuit ${name} loaded (noir_version: ${circuit.noir_version})`);
