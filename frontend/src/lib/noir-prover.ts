@@ -276,7 +276,10 @@ export async function generateMoveProof(inputs: MoveProofInputs): Promise<MovePr
     newSalt,
   ]);
 
-  // Format map_walls as array of field strings
+  // Compute map hash (Pedersen hash of all 16 wall row bitmasks)
+  const mapHash = await computePedersenHash(mapWalls);
+
+  // Format map_walls as array of field strings (private input)
   const mapWallsArr = mapWalls.map((w) => toFieldHex(w));
 
   const circuitInputs = {
@@ -286,14 +289,16 @@ export async function generateMoveProof(inputs: MoveProofInputs): Promise<MovePr
     new_x: toFieldHex(BigInt(newPos.x)),
     new_y: toFieldHex(BigInt(newPos.y)),
     new_salt: toFieldHex(newSalt),
+    map_walls: mapWallsArr,
     old_commitment: oldCommitment,
     new_commitment: newCommitment,
-    map_walls: mapWallsArr,
+    map_hash: mapHash,
   };
 
-  console.log('[ZK] Generating valid_move proof…', {
+  console.log('[ZK] Generating valid_move proof...', {
     from: `(${oldPos.x}, ${oldPos.y})`,
     to: `(${newPos.x}, ${newPos.y})`,
+    publicInputs: 3,
   });
 
   const { witness } = await noir.execute(circuitInputs);
@@ -303,7 +308,7 @@ export async function generateMoveProof(inputs: MoveProofInputs): Promise<MovePr
 
   return {
     proof: proof.proof,
-    publicInputs: [oldCommitment, newCommitment, ...mapWallsArr],
+    publicInputs: [oldCommitment, newCommitment, mapHash],
     oldCommitment,
     newCommitment,
   };
