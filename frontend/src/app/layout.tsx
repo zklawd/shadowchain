@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import Providers from '@/components/Providers';
 
 export const metadata: Metadata = {
   title: 'ShadowChain — ZK Fog-of-War Arena',
@@ -14,7 +15,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className="font-mono antialiased bg-gray-950 text-gray-200 crt-overlay">
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
