@@ -254,3 +254,29 @@ fn test_cross_check_with_solidity() {
     
     println(f"Cross-check PASSED: poseidon(5, 10, 12345) = {cell_hash}");
 }
+
+#[test]
+fn verify_live_sepolia_treasure() {
+    // Values from live Sepolia test on v3 contract
+    let x: Field = 14;
+    let y: Field = 1;
+    let seed: Field = 0x223962be0387466c5cd4618d4e51f423eeafded9a89df52ec1128b4c2b566a0e;
+    
+    // Check if it's a treasure (hash mod 256 < 20)
+    let cell_hash = hash_3([x, y, seed]);
+    let cell_hash_bytes = cell_hash.to_be_bytes::<32>();
+    let hash_mod = cell_hash_bytes[31] as u32;
+    
+    println(f"poseidon(14, 1, seed) last byte = {hash_mod}");
+    assert(hash_mod < TREASURE_THRESHOLD, "Circuit says NOT a treasure!");
+    println(f"Circuit confirms: (14, 1) IS a treasure!");
+    
+    // Check artifact ID (contract returned 3)
+    let artifact_hash = hash_4([x, y, seed, ARTIFACT_DOMAIN_SEP]);
+    let artifact_bytes = artifact_hash.to_be_bytes::<32>();
+    let artifact_id = ((artifact_bytes[31] as u32) % 8) + 1;
+    
+    println(f"Circuit artifact ID = {artifact_id}");
+    assert(artifact_id == 3, "Artifact ID mismatch with contract!");
+    println(f"VERIFIED: Circuit and contract agree - artifact ID = 3");
+}

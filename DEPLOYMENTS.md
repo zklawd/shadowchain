@@ -9,7 +9,8 @@
 
 | Contract | Address | Tx Hash |
 |----------|---------|---------|
-| **ShadowChainGame (v2)** | `0x14858891533335c50825915b54932B8991Af011C` | `0xa9a7b636acd9ed7ebf1c1b01fd48eaf8075389107bb5dfe7d0d0f5cdecc19f91` |
+| **ShadowChainGame (v3)** | `0x64261645b3BbBD637603B2E9cd4541F55e58BE79` | `0xd7987cd1267eb2408e33a79c81fa2f2d7c60cc5f9877490fb3c0659a3be196dc` |
+| ShadowChainGame (v2 - deprecated) | `0x14858891533335c50825915b54932B8991Af011C` | `0xa9a7b636acd9ed7ebf1c1b01fd48eaf8075389107bb5dfe7d0d0f5cdecc19f91` |
 | ShadowChainGame (v1 - deprecated) | `0x5fdD77012cc3A82Cc43Ebdc2258Cade1EeDcCD05` | `0x8be56fe494bb977cc3c52487b01adfd30aaa7fca65e549ae3b3145a017be1837` |
 | ValidMoveHonkVerifier | `0x495A19Bc734dfAbA95EB29FAbd1f99400900D362` | `0xcaaee3c214cfadd7bfc3281ac1765f705c68c1e5691898d6aa7058f5f04b09f9` |
 | ClaimArtifactHonkVerifier | `0x8218EBd4003B9F4A3FDFcE2694684494b0945166` | `0xa9111a98fc9fda8c2ca4f64ccf394c0321c6075f16c4e7621884f8586ec9255c` |
@@ -18,7 +19,8 @@
 
 ### Explorer Links
 
-- Game (v2): https://sepolia.etherscan.io/address/0x14858891533335c50825915b54932B8991Af011C
+- Game (v3 - Poseidon): https://sepolia.etherscan.io/address/0x64261645b3BbBD637603B2E9cd4541F55e58BE79
+- Game (v2 - deprecated): https://sepolia.etherscan.io/address/0x14858891533335c50825915b54932B8991Af011C
 - Game (v1 - deprecated): https://sepolia.etherscan.io/address/0x5fdD77012cc3A82Cc43Ebdc2258Cade1EeDcCD05
 - Move Verifier: https://sepolia.etherscan.io/address/0x495A19Bc734dfAbA95EB29FAbd1f99400900D362
 - Artifact Verifier: https://sepolia.etherscan.io/address/0x8218EBd4003B9F4A3FDFcE2694684494b0945166
@@ -39,9 +41,15 @@
 
 ### Version History
 
-**v2 (2026-01-28):** Procedural treasures via multi-party seed
+**v3 (2026-01-28):** CRITICAL - Poseidon hash for circuit/contract consistency
+- Contract and circuit now use identical Poseidon hashes
+- `PoseidonT4.hash([x, y, treasureSeed])` for treasure check
+- `PoseidonT5.hash([x, y, treasureSeed, ARTIFACT_DOMAIN_SEP])` for artifact ID
+- Links pre-deployed PoseidonT4 (0x4443338E...) and PoseidonT5 (0x555333f3...)
+- VERIFIED: Circuit and contract produce identical results for same inputs
+
+**v2 (2026-01-28):** Procedural treasures via multi-party seed (BROKEN - used keccak256)
 - `treasureSeed = hash(gameSeed, commit1, commit2, ...)` computed on game start
-- Treasures at cells where `hash(x, y, treasureSeed) % 256 < 20`
-- Prevents precomputation of treasure locations before all players join
+- Used keccak256 in contract but circuit used Pedersen - MISMATCH!
 
 **v1 (2026-01-28):** Initial deployment with bitmap-based treasures

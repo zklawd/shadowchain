@@ -2,7 +2,7 @@ import { type Abi } from 'viem';
 
 // ── Contract Addresses ─────────────────────────────────────
 
-export const SHADOW_CHAIN_GAME_ADDRESS = '0x14858891533335c50825915b54932B8991Af011C' as const;
+export const SHADOW_CHAIN_GAME_ADDRESS = '0x64261645b3BbBD637603B2E9cd4541F55e58BE79' as const;
 export const ARTIFACT_REGISTRY_ADDRESS = '0x8103b517515e07df74e0f02c76b04caeCA502290' as const;
 export const VALID_MOVE_VERIFIER_ADDRESS = '0x495A19Bc734dfAbA95EB29FAbd1f99400900D362' as const;
 export const CLAIM_ARTIFACT_VERIFIER_ADDRESS = '0x8218EBd4003B9F4A3FDFcE2694684494b0945166' as const;
