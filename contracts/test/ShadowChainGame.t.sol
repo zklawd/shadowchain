@@ -27,6 +27,10 @@ contract ShadowChainGameTest is Test {
     // Dummy proof data (MockVerifier always returns true)
     bytes constant DUMMY_PROOF = hex"deadbeef";
     bytes32[] DUMMY_INPUTS;
+    
+    // Dummy nullifier and inventory commitment for tests
+    bytes32 constant DUMMY_NULLIFIER = keccak256("nullifier");
+    bytes32 constant DUMMY_INVENTORY_COMMITMENT = keccak256("inventory");
 
     function setUp() public {
         mockVerifier = new MockVerifier();
@@ -47,9 +51,14 @@ contract ShadowChainGameTest is Test {
         vm.deal(charlie, 10 ether);
         vm.deal(dave, 10 ether);
 
-        // Set up dummy inputs
-        DUMMY_INPUTS = new bytes32[](1);
+        // Set up dummy inputs (4 elements for claim_artifact and combat_reveal)
+        // For claim_artifact: [commitment, treasureSeed, artifactId, nullifier]
+        // For combat_reveal: [commitment, statsCommitment, gameId, inventoryCommitment]
+        DUMMY_INPUTS = new bytes32[](4);
         DUMMY_INPUTS[0] = bytes32(uint256(1));
+        DUMMY_INPUTS[1] = bytes32(uint256(2));
+        DUMMY_INPUTS[2] = bytes32(uint256(3));
+        DUMMY_INPUTS[3] = DUMMY_INVENTORY_COMMITMENT; // Used for combat (inventory commitment)
     }
 
     // =========================================================================
@@ -90,6 +99,12 @@ contract ShadowChainGameTest is Test {
 
         vm.prank(bob);
         game.joinGame{value: ENTRY_FEE}(gameId, keccak256("bob_pos"));
+    }
+
+    /// @dev Initialize inventory commitment for a player (required before combat)
+    function _initializeInventory(uint256 gameId, address player) internal {
+        vm.prank(player);
+        game.initializeInventory(gameId, DUMMY_INVENTORY_COMMITMENT);
     }
 
     /// @dev Create, fill, and start a 4-player game
@@ -463,7 +478,7 @@ contract ShadowChainGameTest is Test {
         uint8 cellIndex = y * 16 + x;
 
         vm.prank(alice);
-        game.claimArtifact(gameId, x, y, DUMMY_PROOF, DUMMY_INPUTS);
+        game.claimArtifact(gameId, x, y, DUMMY_PROOF, DUMMY_INPUTS, DUMMY_INVENTORY_COMMITMENT);
 
         // Check artifact was claimed
         address claimer = registry.claimedBy(gameId, cellIndex);
@@ -479,11 +494,18 @@ contract ShadowChainGameTest is Test {
         // Get expected artifact ID from contract helper
         uint8 expectedArtifactId = game.getArtifactAtCell(gameId, x, y);
 
+        // Create inputs with nullifier (claim_artifact uses nullifier in publicInputs[3])
+        bytes32[] memory claimInputs = new bytes32[](4);
+        claimInputs[0] = DUMMY_INPUTS[0];
+        claimInputs[1] = DUMMY_INPUTS[1];
+        claimInputs[2] = DUMMY_INPUTS[2];
+        claimInputs[3] = DUMMY_NULLIFIER;
+
         vm.expectEmit(true, true, false, true);
-        emit ShadowChainGame.ArtifactClaimedEvent(gameId, alice, expectedArtifactId, cellIndex);
+        emit ShadowChainGame.ArtifactClaimedEvent(gameId, alice, expectedArtifactId, cellIndex, DUMMY_NULLIFIER);
 
         vm.prank(alice);
-        game.claimArtifact(gameId, x, y, DUMMY_PROOF, DUMMY_INPUTS);
+        game.claimArtifact(gameId, x, y, DUMMY_PROOF, claimInputs, DUMMY_INVENTORY_COMMITMENT);
     }
 
     function test_claimArtifact_updatesStats() public {
@@ -497,7 +519,7 @@ contract ShadowChainGameTest is Test {
         ShadowChainGame.Player memory before_ = game.getPlayer(gameId, alice);
 
         vm.prank(alice);
-        game.claimArtifact(gameId, x, y, DUMMY_PROOF, DUMMY_INPUTS);
+        game.claimArtifact(gameId, x, y, DUMMY_PROOF, DUMMY_INPUTS, DUMMY_INVENTORY_COMMITMENT);
 
         ShadowChainGame.Player memory after_ = game.getPlayer(gameId, alice);
 
@@ -522,7 +544,7 @@ contract ShadowChainGameTest is Test {
         // Coordinates out of bounds should revert
         vm.prank(alice);
         vm.expectRevert("Invalid cell coordinates");
-        game.claimArtifact(gameId, 16, 0, DUMMY_PROOF, DUMMY_INPUTS);
+        game.claimArtifact(gameId, 16, 0, DUMMY_PROOF, DUMMY_INPUTS, DUMMY_INVENTORY_COMMITMENT);
     }
 
     function test_claimArtifact_alreadyClaimed_reverts() public {
@@ -531,11 +553,36 @@ contract ShadowChainGameTest is Test {
         (uint8 x, uint8 y) = _findFirstProceduralTreasure(treasureSeed);
 
         vm.prank(alice);
-        game.claimArtifact(gameId, x, y, DUMMY_PROOF, DUMMY_INPUTS);
+        game.claimArtifact(gameId, x, y, DUMMY_PROOF, DUMMY_INPUTS, DUMMY_INVENTORY_COMMITMENT);
+
+        // Bob tries with a different nullifier (to get past nullifier check)
+        // but should fail on registry's already claimed check
+        bytes32[] memory bobInputs = new bytes32[](4);
+        bobInputs[0] = DUMMY_INPUTS[0];
+        bobInputs[1] = DUMMY_INPUTS[1];
+        bobInputs[2] = DUMMY_INPUTS[2];
+        bobInputs[3] = keccak256("bob_nullifier"); // Different nullifier
 
         vm.prank(bob);
         vm.expectRevert("ArtifactRegistry: already claimed");
-        game.claimArtifact(gameId, x, y, DUMMY_PROOF, DUMMY_INPUTS);
+        game.claimArtifact(gameId, x, y, DUMMY_PROOF, bobInputs, keccak256("bob_inventory"));
+    }
+    
+    function test_claimArtifact_nullifierReused_reverts() public {
+        uint256 gameId = _createAndStartGame();
+        (, bytes32 treasureSeed) = game.getGameMap(gameId);
+        (uint8 x, uint8 y) = _findFirstProceduralTreasure(treasureSeed);
+
+        vm.prank(alice);
+        game.claimArtifact(gameId, x, y, DUMMY_PROOF, DUMMY_INPUTS, DUMMY_INVENTORY_COMMITMENT);
+
+        // Same nullifier should fail even on different cell
+        (uint8 x2, uint8 y2) = _findSecondProceduralTreasure(treasureSeed, x, y);
+        if (x2 != 255) {
+            vm.prank(alice);
+            vm.expectRevert("Artifact already claimed");
+            game.claimArtifact(gameId, x2, y2, DUMMY_PROOF, DUMMY_INPUTS, keccak256("new_inventory"));
+        }
     }
 
     function test_claimArtifact_gameNotActive_reverts() public {
@@ -544,7 +591,7 @@ contract ShadowChainGameTest is Test {
 
         vm.prank(alice);
         vm.expectRevert("Game not active");
-        game.claimArtifact(gameId, 5, 5, DUMMY_PROOF, DUMMY_INPUTS);
+        game.claimArtifact(gameId, 5, 5, DUMMY_PROOF, DUMMY_INPUTS, DUMMY_INVENTORY_COMMITMENT);
     }
 
     // =========================================================================
@@ -553,6 +600,7 @@ contract ShadowChainGameTest is Test {
 
     function test_triggerCombat() public {
         uint256 gameId = _createAndStartGame();
+        _initializeInventory(gameId, alice);
 
         vm.prank(alice);
         game.triggerCombat(gameId, bob, DUMMY_PROOF, DUMMY_INPUTS);
@@ -564,6 +612,7 @@ contract ShadowChainGameTest is Test {
 
     function test_triggerCombat_damageApplied() public {
         uint256 gameId = _createAndStartGame();
+        _initializeInventory(gameId, alice);
 
         ShadowChainGame.Player memory bobBefore = game.getPlayer(gameId, bob);
 
@@ -579,6 +628,7 @@ contract ShadowChainGameTest is Test {
 
     function test_triggerCombat_cannotAttackSelf() public {
         uint256 gameId = _createAndStartGame();
+        _initializeInventory(gameId, alice);
 
         vm.prank(alice);
         vm.expectRevert("Cannot attack self");
@@ -595,6 +645,7 @@ contract ShadowChainGameTest is Test {
         // Can't attack dead player -- game already resolved since 2-player game
         // Use 4-player game instead
         uint256 gameId2 = _createAndStartFullGame();
+        _initializeInventory(gameId2, alice);
 
         vm.prank(charlie);
         game.forfeit(gameId2);
@@ -606,6 +657,7 @@ contract ShadowChainGameTest is Test {
 
     function test_triggerCombat_elimination() public {
         uint256 gameId = _createAndStartFullGame();
+        _initializeInventory(gameId, alice);
 
         // Attack bob repeatedly until eliminated
         // With base stats: attack=10, defense=5, damage = 10-5 + random(-3..+3) = 2..8
@@ -647,6 +699,10 @@ contract ShadowChainGameTest is Test {
         strictGame.joinGame(gameId, keccak256("alice"));
         vm.prank(bob);
         strictGame.joinGame(gameId, keccak256("bob"));
+
+        // Initialize inventory so we can test proof verification
+        vm.prank(alice);
+        strictGame.initializeInventory(gameId, DUMMY_INVENTORY_COMMITMENT);
 
         vm.prank(alice);
         vm.expectRevert("Invalid combat proof");
@@ -986,22 +1042,39 @@ contract ShadowChainGameTest is Test {
         g = game.getGame(gameId);
         assertEq(g.currentTurn, 2);
 
+        // Turn 2: Alice initializes inventory (required before combat)
+        _initializeInventory(gameId, alice);
+        
         // Turn 2: Alice claims an artifact
         (, bytes32 treasureSeed) = game.getGameMap(gameId);
         (uint8 tx, uint8 ty) = _findFirstProceduralTreasure(treasureSeed);
         if (tx != 255) {
+            // Use a different nullifier for claim_artifact
+            bytes32[] memory claimInputs = new bytes32[](4);
+            claimInputs[0] = DUMMY_INPUTS[0];
+            claimInputs[1] = DUMMY_INPUTS[1];
+            claimInputs[2] = DUMMY_INPUTS[2];
+            claimInputs[3] = DUMMY_NULLIFIER;
             vm.prank(alice);
-            game.claimArtifact(gameId, tx, ty, DUMMY_PROOF, DUMMY_INPUTS);
+            game.claimArtifact(gameId, tx, ty, DUMMY_PROOF, claimInputs, keccak256("alice_new_inventory"));
         }
 
         // Turn 2: Bob submits a move
         vm.prank(bob);
         game.submitMove(gameId, keccak256("bob_t2"), DUMMY_PROOF, DUMMY_INPUTS);
 
+        // Update alice's inventory commitment for combat (if she claimed artifact)
+        // Note: claimArtifact updates it, so we need matching inputs
+        bytes32[] memory combatInputs = new bytes32[](4);
+        combatInputs[0] = DUMMY_INPUTS[0];
+        combatInputs[1] = DUMMY_INPUTS[1];
+        combatInputs[2] = DUMMY_INPUTS[2];
+        combatInputs[3] = tx != 255 ? keccak256("alice_new_inventory") : DUMMY_INVENTORY_COMMITMENT;
+        
         // Alice triggers combat
         vm.roll(block.number + 1);
         vm.prank(alice);
-        game.triggerCombat(gameId, bob, DUMMY_PROOF, DUMMY_INPUTS);
+        game.triggerCombat(gameId, bob, DUMMY_PROOF, combatInputs);
 
         // Bob forfeits, alice wins
         vm.prank(bob);
@@ -1075,5 +1148,19 @@ contract ShadowChainGameTest is Test {
             }
         }
         return (255, 255); // Not found (unlikely with threshold 20)
+    }
+    
+    /// @notice Find second treasure cell (different from first)
+    function _findSecondProceduralTreasure(bytes32 treasureSeed, uint8 skipX, uint8 skipY) internal pure returns (uint8 x, uint8 y) {
+        for (uint8 _y = 0; _y < 16; _y++) {
+            for (uint8 _x = 0; _x < 16; _x++) {
+                if (_x == skipX && _y == skipY) continue;
+                uint256 cellHash = PoseidonT4.hash([uint256(_x), uint256(_y), uint256(treasureSeed)]);
+                if (cellHash % 256 < 20) {
+                    return (_x, _y);
+                }
+            }
+        }
+        return (255, 255);
     }
 }

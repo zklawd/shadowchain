@@ -124,7 +124,20 @@ contract ShadowChainGame is ReentrancyGuard {
         uint256 indexed gameId,
         address indexed player,
         uint8 artifactId,
-        uint8 cellIndex
+        uint8 cellIndex,
+        bytes32 nullifier
+    );
+
+    event InventoryCommitmentUpdated(
+        uint256 indexed gameId,
+        address indexed player,
+        bytes32 newCommitment
+    );
+
+    event InventoryInitialized(
+        uint256 indexed gameId,
+        address indexed player,
+        bytes32 commitment
     );
 
     event CombatTriggered(
@@ -171,6 +184,14 @@ contract ShadowChainGame is ReentrancyGuard {
 
     /// @notice Game ID → array of player commitments (for computing treasureSeed)
     mapping(uint256 => bytes32[]) public gameCommitments;
+
+    /// @notice Nullifier tracking for artifact claims (prevents double-claiming)
+    /// @dev nullifier = poseidon(player_secret, x, y, treasure_seed, domain_sep)
+    mapping(bytes32 => bool) public usedNullifiers;
+
+    /// @notice Game ID → player address → inventory commitment
+    /// @dev Commitment to player's owned artifacts: pedersen(artifact_ids[0..7], salt)
+    mapping(uint256 => mapping(address => bytes32)) public inventoryCommitments;
 
     /// @notice Verifier contracts for each proof type
     IShadowVerifier public moveVerifier;
@@ -329,13 +350,15 @@ contract ShadowChainGame is ReentrancyGuard {
     /// @param cellX X coordinate of the treasure cell (0-15)
     /// @param cellY Y coordinate of the treasure cell (0-15)
     /// @param proof ZK proof that player is at a valid treasure cell
-    /// @param publicInputs Public inputs: [commitment, treasureSeed, artifactId]
+    /// @param publicInputs Public inputs: [commitment, treasureSeed, artifactId, nullifier]
+    /// @param newInventoryCommitment New commitment to player's inventory after claiming
     function claimArtifact(
         uint256 gameId,
         uint8 cellX,
         uint8 cellY,
         bytes calldata proof,
-        bytes32[] calldata publicInputs
+        bytes32[] calldata publicInputs,
+        bytes32 newInventoryCommitment
     ) external {
         Game storage g = games[gameId];
         Player storage p = players[gameId][msg.sender];
@@ -343,12 +366,24 @@ contract ShadowChainGame is ReentrancyGuard {
         require(g.state == GameState.Active, "Game not active");
         require(p.status == PlayerStatus.Alive, "Player not alive");
         require(cellX < 16 && cellY < 16, "Invalid cell coordinates");
+        require(publicInputs.length >= 4, "Missing public inputs");
+        require(newInventoryCommitment != bytes32(0), "Empty inventory commitment");
+
+        // Extract nullifier from public inputs (4th element, index 3)
+        bytes32 nullifier = publicInputs[3];
+        
+        // SECURITY: Check nullifier hasn't been used (prevents double-claiming)
+        require(!usedNullifiers[nullifier], "Artifact already claimed");
 
         // ZK proof verifies:
         // 1. Player commitment matches their position (cellX, cellY)
         // 2. hash(cellX, cellY, treasureSeed) % 256 < TREASURE_THRESHOLD
         // 3. artifactId matches derived value
+        // 4. nullifier = poseidon(player_secret, x, y, treasure_seed, domain_sep)
         require(artifactVerifier.verify(proof, publicInputs), "Invalid artifact proof");
+
+        // Mark nullifier as used BEFORE any state changes (CEI pattern)
+        usedNullifiers[nullifier] = true;
 
         // Derive artifact ID (must match what circuit proved)
         uint8 artifactId = _getArtifactAtCell(cellX, cellY, g.treasureSeed);
@@ -368,7 +403,33 @@ contract ShadowChainGame is ReentrancyGuard {
         if (p.attack < 1) p.attack = 1;
         if (p.defense < 0) p.defense = 0;
 
-        emit ArtifactClaimedEvent(gameId, msg.sender, artifactId, cellIndex);
+        // Update inventory commitment for combat_reveal verification
+        inventoryCommitments[gameId][msg.sender] = newInventoryCommitment;
+
+        emit ArtifactClaimedEvent(gameId, msg.sender, artifactId, cellIndex, nullifier);
+        emit InventoryCommitmentUpdated(gameId, msg.sender, newInventoryCommitment);
+    }
+
+    /// @notice Initialize inventory commitment (required before combat)
+    /// @dev Players must call this with a commitment to their empty inventory
+    ///      before they can use combat_reveal proofs. The commitment is:
+    ///      pedersen([0,0,0,0,0,0,0,0, inventory_salt])
+    /// @param gameId The game ID
+    /// @param commitment Commitment to empty artifact inventory
+    function initializeInventory(uint256 gameId, bytes32 commitment) external {
+        Game storage g = games[gameId];
+        Player storage p = players[gameId][msg.sender];
+
+        require(g.state == GameState.Active || g.state == GameState.Created, "Game not joinable");
+        require(p.status == PlayerStatus.Alive, "Player not alive");
+        require(commitment != bytes32(0), "Empty commitment");
+        
+        // Can only initialize once (updates happen via claimArtifact)
+        require(inventoryCommitments[gameId][msg.sender] == bytes32(0), "Already initialized");
+
+        inventoryCommitments[gameId][msg.sender] = commitment;
+
+        emit InventoryInitialized(gameId, msg.sender, commitment);
     }
     
     /// @notice Derive artifact ID at a cell from treasureSeed (deterministic)
@@ -387,7 +448,7 @@ contract ShadowChainGame is ReentrancyGuard {
     /// @param gameId The game ID
     /// @param defender Address of the defender
     /// @param proof ZK proof of encounter (both at same cell) + attacker stats
-    /// @param publicInputs Public inputs for the proof
+    /// @param publicInputs Public inputs: [commitment, stats_commitment, game_id, inventory_commitment]
     function triggerCombat(
         uint256 gameId,
         address defender,
@@ -402,8 +463,15 @@ contract ShadowChainGame is ReentrancyGuard {
         require(attacker.status == PlayerStatus.Alive, "Attacker not alive");
         require(def.status == PlayerStatus.Alive, "Defender not alive");
         require(msg.sender != defender, "Cannot attack self");
+        require(publicInputs.length >= 4, "Missing public inputs");
 
-        // Verify combat proof
+        // SECURITY: Verify inventory commitment matches on-chain record
+        // This ensures the attacker can only use artifacts they actually own
+        bytes32 proofInventoryCommitment = publicInputs[3];
+        bytes32 storedInventoryCommitment = inventoryCommitments[gameId][msg.sender];
+        require(proofInventoryCommitment == storedInventoryCommitment, "Inventory commitment mismatch");
+
+        // Verify combat proof (circuit verifies stats match artifacts + ownership)
         require(combatVerifier.verify(proof, publicInputs), "Invalid combat proof");
 
         // Calculate damage: attacker's attack - defender's defense + random modifier
@@ -564,6 +632,21 @@ contract ShadowChainGame is ReentrancyGuard {
     /// @notice Get the treasure seed for a game (only set after game starts)
     function getTreasureSeed(uint256 gameId) external view returns (bytes32) {
         return games[gameId].treasureSeed;
+    }
+
+    /// @notice Check if a nullifier has been used
+    /// @param nullifier The nullifier to check
+    /// @return True if the nullifier has been used
+    function isNullifierUsed(bytes32 nullifier) external view returns (bool) {
+        return usedNullifiers[nullifier];
+    }
+
+    /// @notice Get a player's inventory commitment
+    /// @param gameId The game ID
+    /// @param player The player address
+    /// @return The inventory commitment (bytes32(0) if not initialized)
+    function getInventoryCommitment(uint256 gameId, address player) external view returns (bytes32) {
+        return inventoryCommitments[gameId][player];
     }
 
     // =========================================================================
