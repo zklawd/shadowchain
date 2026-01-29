@@ -1,5 +1,3 @@
-# Position: (3, 7) with salt 12345
-x = "3"
-y = "7"
-salt = "12345"
-commitment = "0x1fb48daaefaa2dabbc86495d72745f1db9269bad62efc1dfe052877b3e084650"
+x = "5"
+y = "5"
+salt = "123"

@@ -173,10 +173,9 @@ async function _loadCircuit(name: CircuitName): Promise<CircuitState> {
     const { Noir } = await import('@noir-lang/noir_js');
     const noir = new Noir(circuit);
 
-    // Create UltraHonk backend (shares the Barretenberg instance)
-    const bb = await _getBB();
+    // Create UltraHonk backend (bb.js 0.82.2 creates its own Barretenberg instance)
     const { UltraHonkBackend } = await import('@aztec/bb.js');
-    const backend = new UltraHonkBackend(circuit.bytecode, bb);
+    const backend = new UltraHonkBackend(circuit.bytecode);
 
     const state: CircuitState = { noir, backend };
     _circuits.set(name, state);
@@ -255,7 +254,7 @@ export async function generatePositionCommitProof(
   console.log('[ZK] Generating position_commit proof…', { x, y });
 
   const { witness } = await noir.execute(circuitInputs);
-  const proof = await backend.generateProof(witness);
+  const proof = await backend.generateProof(witness, { keccak: true });
 
   console.log('[ZK] position_commit proof generated!', { proofBytes: proof.proof.length });
 
@@ -316,7 +315,7 @@ export async function generateMoveProof(inputs: MoveProofInputs): Promise<MovePr
   });
 
   const { witness } = await noir.execute(circuitInputs);
-  const proof = await backend.generateProof(witness);
+  const proof = await backend.generateProof(witness, { keccak: true });
 
   console.log('[ZK] valid_move proof generated!', { proofBytes: proof.proof.length });
 
@@ -377,7 +376,7 @@ export async function generateClaimArtifactProof(
   console.log('[ZK] Generating claim_artifact proof…', { x, y, artifactId });
 
   const { witness } = await noir.execute(circuitInputs);
-  const proof = await backend.generateProof(witness);
+  const proof = await backend.generateProof(witness, { keccak: true });
 
   console.log('[ZK] claim_artifact proof generated!', { proofBytes: proof.proof.length });
 
@@ -484,7 +483,7 @@ export async function generateCombatRevealProof(
   console.log('[ZK] Generating combat_reveal proof…', { x, y, gameId: gameId.toString(), hp, attack, defense });
 
   const { witness } = await noir.execute(circuitInputs);
-  const proof = await backend.generateProof(witness);
+  const proof = await backend.generateProof(witness, { keccak: true });
 
   console.log('[ZK] combat_reveal proof generated!', { proofBytes: proof.proof.length });
 
@@ -538,25 +537,43 @@ export async function verifyProof(circuitName: CircuitName, proofData: any): Pro
 /**
  * Compute Pedersen hash using Barretenberg.
  * Matches Noir's `std::hash::pedersen_hash` with default separator (0).
+ * Uses bb.js 0.82.2 API with Fr.fromBuffer.
  */
 export async function computePedersenHash(inputs: bigint[]): Promise<string> {
   const bb = await _getBB();
-  const frInputs = inputs.map((v) => bigintToFr(v));
-  const result = await bb.pedersenHash({ inputs: frInputs, hashIndex: 0 });
-  return frToHex(result.hash);
+  const { Fr } = await import('@aztec/bb.js');
+  // bb.js 0.82.2: Fr.fromBuffer expects Buffer, not Uint8Array
+  const frInputs = inputs.map((v) => {
+    const hex = v.toString(16).padStart(64, '0');
+    const buffer = Buffer.from(hex, 'hex');
+    return Fr.fromBuffer(buffer);
+  });
+  const result = await bb.pedersenHash(frInputs, 0);
+  // result is an Fr, use toBuffer() to get bytes
+  const hashBytes = Buffer.from(result.toBuffer());
+  return '0x' + hashBytes.toString('hex').padStart(64, '0');
 }
 
 /**
  * Compute Poseidon hash using Barretenberg.
  * Matches Noir's `poseidon::poseidon::bn254::hash_N` functions.
  * Used for nullifier derivation in claim_artifact.
+ * Uses bb.js 0.82.2 API with Fr.fromBuffer.
  */
 export async function computePoseidonHash(inputs: bigint[]): Promise<string> {
   const bb = await _getBB();
-  const frInputs = inputs.map((v) => bigintToFr(v));
+  const { Fr } = await import('@aztec/bb.js');
+  // bb.js 0.82.2: Fr.fromBuffer expects Buffer
+  const frInputs = inputs.map((v) => {
+    const hex = v.toString(16).padStart(64, '0');
+    const buffer = Buffer.from(hex, 'hex');
+    return Fr.fromBuffer(buffer);
+  });
   // Barretenberg's poseidonHash function
   const result = await bb.poseidonHash(frInputs);
-  return frToHex(result);
+  // result is an Fr, use toBuffer() to get bytes
+  const hashBytes = Buffer.from(result.toBuffer());
+  return '0x' + hashBytes.toString('hex').padStart(64, '0');
 }
 
 /**
