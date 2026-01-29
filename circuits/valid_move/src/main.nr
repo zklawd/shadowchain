@@ -61,10 +61,18 @@ fn main(
     // In a prime field, checking dist_sq * (dist_sq - 1) == 0 verifies dist_sq in {0, 1}
     assert(dist_sq * (dist_sq - 1) == 0, "Move is not adjacent (must be N/S/E/W or stay)");
 
-    // 5. Wall check: new position must not be a wall
-    let row_bits = map_walls[ny as u32] as u32;
-    let bit = (row_bits >> nx) & 1;
-    assert(bit == 0, "New position is a wall");
+    // 5. Wall check: BOTH positions must not be walls
+    //    (defense-in-depth: prevents exploits if player somehow committed to wall position)
+    
+    // Check OLD position is not a wall
+    let old_row_bits = map_walls[oy as u32] as u32;
+    let old_bit = (old_row_bits >> ox) & 1;
+    assert(old_bit == 0, "Old position is a wall");
+    
+    // Check NEW position is not a wall
+    let new_row_bits = map_walls[ny as u32] as u32;
+    let new_bit = (new_row_bits >> nx) & 1;
+    assert(new_bit == 0, "New position is a wall");
 }
 
 /// Helper: compute a position commitment
@@ -237,4 +245,23 @@ fn test_wrong_old_commitment_fails() {
     let new_c = compute_commitment(6, 5, new_salt);
 
     main(5, 5, old_salt, 6, 5, new_salt, walls, 0, new_c, mh);
+}
+
+#[test(should_fail_with = "Old position is a wall")]
+fn test_old_position_wall_fails() {
+    // Security test: if somehow player committed to a wall position,
+    // they should not be able to move from it
+    let old_salt: Field = 111;
+    let new_salt: Field = 222;
+
+    // Set wall at (5, 5): row 5, bit 5 = 32
+    let mut walls = empty_map();
+    walls[5] = 32;
+    let mh = compute_map_hash(walls);
+
+    // Old position (5,5) is a wall, new position (6,5) is not
+    let old_c = compute_commitment(5, 5, old_salt);
+    let new_c = compute_commitment(6, 5, new_salt);
+
+    main(5, 5, old_salt, 6, 5, new_salt, walls, old_c, new_c, mh);
 }

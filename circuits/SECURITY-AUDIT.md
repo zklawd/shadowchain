@@ -1,6 +1,6 @@
 # ShadowChain Circuits Security Audit
 
-**Date:** 2025-01-29  
+**Date:** 2025-01-29 (Initial) | 2026-01-29 (Fixes Applied)  
 **Auditor:** zklawd (automated ZK security review)  
 **Scope:** position_commit, valid_move, claim_artifact, combat_reveal
 
@@ -8,389 +8,182 @@
 
 ## Executive Summary
 
-This audit identified **2 critical**, **2 high**, **1 medium**, and **2 low** severity findings across the four ShadowChain circuits. The most severe issues involve missing nullifier mechanisms and lack of artifact ownership verification, which could allow players to cheat the game mechanics.
+Initial audit identified **2 critical**, **2 high**, **1 medium**, and **2 low** severity findings.
 
-| Severity | Count |
-|----------|-------|
-| Critical | 2 |
-| High | 2 |
-| Medium | 1 |
-| Low | 2 |
-| Info | 3 |
+**All issues have been addressed.** Summary of fixes applied:
 
----
-
-## Circuit 1: position_commit
-
-**Opcodes:** 8  
-**Purpose:** Simple hash commitment proving knowledge of (x, y, salt)
-
-### Findings
-
-#### [LOW] PC-1: Missing Coordinate Range Checks
-
-**Severity:** Low  
-**Status:** Confirmed
-
-**Description:**  
-The circuit accepts arbitrary Field values for `x` and `y` without constraining them to valid grid coordinates (0-15). While this circuit is primarily used as a building block, a standalone proof could commit to positions outside the valid game grid.
-
-```noir
-// Current - x, y are unconstrained Field values
-fn main(x: Field, y: Field, salt: Field, commitment: pub Field) {
-    let computed = pedersen_hash([x, y, salt]);
-    assert(computed == commitment, "Position commitment mismatch");
-}
-```
-
-**Impact:**  
-In isolation, this is low risk since downstream circuits (valid_move, claim_artifact) perform their own bounds checks. However, if this circuit is used independently for position proofs, invalid positions could be committed.
-
-**Recommendation:**  
-Add bounds checking for defense-in-depth:
-```noir
-let x_u8 = x as u8;
-let y_u8 = y as u8;
-assert(x_u8 < 16, "X out of bounds");
-assert(y_u8 < 16, "Y out of bounds");
-```
+| Finding | Severity | Status |
+|---------|----------|--------|
+| CA-1: Missing Nullifier | Critical | ✅ FIXED |
+| CR-1: No Artifact Ownership | Critical | ✅ FIXED |
+| CR-2: Missing Position Bounds | High | ✅ FIXED |
+| CR-3: Artifact Duplication | High | ✅ FIXED |
+| VM-1: Old Position Wall Check | Medium | ✅ FIXED |
+| PC-1: Missing Bounds Checks | Low | ✅ FIXED |
+| CR-4: Weak Game Binding | Low | Documented (contract responsibility) |
 
 ---
 
-## Circuit 2: valid_move
+## Fixes Applied
 
-**Opcodes:** 189  
-**Purpose:** Validates movement between adjacent cells with wall collision
+### Critical Fixes
 
-### Findings
+#### CA-1: Nullifier Added to claim_artifact ✅
 
-#### [MEDIUM] VM-1: Old Position Not Checked for Walls
+**Problem:** No mechanism to prevent double-claiming treasures.
 
-**Severity:** Medium  
-**Status:** Confirmed
-
-**Description:**  
-The circuit only verifies that the NEW position is not a wall, but does not validate that the OLD position is also a valid (non-wall) cell. A malicious prover could generate a proof claiming to move FROM a wall cell.
-
+**Solution:** Added nullifier derivation:
 ```noir
-// Only new position is checked:
-let row_bits = map_walls[ny as u32] as u32;
-let bit = (row_bits >> (nx as u8)) & 1;
-assert(bit == 0, "New position is a wall");
-// OLD position wall check is MISSING
+// New private input
+player_secret: Field,
+// New public output
+nullifier: pub Field,
+
+// Nullifier computed as:
+let computed_nullifier = hash_5([player_secret, x, y, treasure_seed, NULLIFIER_DOMAIN_SEP]);
+assert(computed_nullifier == nullifier, "Nullifier mismatch");
 ```
 
-**Impact:**  
-While the game client would need to accept a previous invalid commitment to be at a wall position initially, if such a state were achieved (e.g., through contract upgrade or bug), the player could exploit this to escape from walls. The attack surface depends on how position commitments are first established.
+**Contract requirement:** Track used nullifiers in a mapping and reject duplicates.
 
-**Recommendation:**  
-Add wall check for old position:
+#### CR-1: Artifact Ownership Verification Added ✅
+
+**Problem:** Players could claim any artifacts regardless of ownership.
+
+**Solution:** Added inventory commitment verification:
 ```noir
-let old_row_bits = map_walls[oy as u32] as u32;
-let old_bit = (old_row_bits >> (ox as u8)) & 1;
-assert(old_bit == 0, "Old position is a wall");
+// New private inputs
+owned_artifacts: [u32; MAX_ARTIFACTS],   // Full inventory
+inventory_salt: Field,                    // Inventory salt
+
+// New public input
+inventory_commitment: pub Field,          // Commitment tracked by contract
+
+// Verification:
+// 1. Inventory commitment matches hash of owned_artifacts
+// 2. Every claimed artifact exists in owned_artifacts
 ```
 
----
+**Contract requirement:** Update `inventory_commitment` when player claims artifacts.
 
-#### [INFO] VM-2: Good Practice - Map Hash Binding
+### High Severity Fixes
 
-**Severity:** Info  
-**Status:** N/A
+#### CR-2: Position Bounds Added ✅
 
-The circuit correctly binds the proof to a specific map configuration via `map_hash`, preventing provers from using a modified wall layout.
+**Problem:** combat_reveal didn't validate x, y coordinates.
 
----
-
-## Circuit 3: claim_artifact
-
-**Opcodes:** 1695  
-**Purpose:** Proves player is at a procedurally-generated treasure cell
-
-### Findings
-
-#### [CRITICAL] CA-1: Missing Nullifier - Replay Attack Vulnerability
-
-**Severity:** Critical  
-**Status:** Confirmed
-
-**Description:**  
-The circuit has **no nullifier mechanism** to prevent the same treasure from being claimed multiple times by the same player or different players. Once a valid proof is generated for a treasure cell, it can be reused indefinitely.
-
+**Solution:**
 ```noir
-// Current - no nullifier output
-fn main(
-    x: Field, y: Field, salt: Field,
-    commitment: pub Field,
-    treasure_seed: pub Field,
-    artifact_id: pub Field,
-) {
-    // ... verifies position and treasure validity
-    // BUT no nullifier is computed or returned!
-}
+assert(x as u8 < 16, "X coordinate out of bounds");
+assert(y as u8 < 16, "Y coordinate out of bounds");
 ```
 
-**Attack Scenario:**
-1. Player A generates a proof for treasure at (14, 1)
-2. Player A submits proof and claims artifact
-3. Player A resubmits the SAME proof again → claims another artifact
-4. Repeat infinitely for unlimited artifacts
+#### CR-3: Artifact Uniqueness Check Added ✅
 
-**Impact:**  
-**Complete game economy break.** Players can farm unlimited artifacts, destroying the in-game economy and any competitive integrity.
+**Problem:** Same artifact could be claimed multiple times for stat stacking.
 
-**Recommendation:**  
-Add a nullifier that commits to the player's identity and the specific treasure:
-```noir
-// Add player_address or player_id as private input
-// Add nullifier as public output
-fn main(
-    x: Field, y: Field, salt: Field,
-    player_secret: Field,  // NEW: player's secret
-    commitment: pub Field,
-    treasure_seed: pub Field,
-    artifact_id: pub Field,
-    nullifier: pub Field,  // NEW: prevents double-claiming
-) {
-    // ... existing checks ...
-    
-    // Nullifier binds player to this specific treasure location
-    let computed_nullifier = poseidon([player_secret, x, y, treasure_seed]);
-    assert(computed_nullifier == nullifier, "Invalid nullifier");
-}
-```
-
-The contract must then track used nullifiers and reject duplicates.
-
----
-
-#### [INFO] CA-2: Good Practice - Domain Separation
-
-**Severity:** Info  
-**Status:** N/A
-
-The circuit correctly uses `ARTIFACT_DOMAIN_SEP` for artifact ID derivation, preventing hash collision attacks between different hash usages.
-
----
-
-## Circuit 4: combat_reveal
-
-**Opcodes:** 714  
-**Purpose:** Proves player stats are correctly derived from base + artifacts
-
-### Findings
-
-#### [CRITICAL] CR-1: No Artifact Ownership Verification
-
-**Severity:** Critical  
-**Status:** Confirmed
-
-**Description:**  
-The circuit accepts any `artifact_ids` array without verifying that the player actually owns those artifacts. A malicious prover can claim to possess any combination of artifacts they never collected.
-
-```noir
-fn main(
-    // ...
-    artifact_ids: [u32; MAX_ARTIFACTS],  // Completely unconstrained!
-    // ...
-) {
-    for i in 0..MAX_ARTIFACTS {
-        let aid = artifact_ids[i];
-        assert(aid <= 8, "Invalid artifact ID");  // Only checks range, not ownership
-        // ... applies bonuses
-    }
-}
-```
-
-**Attack Scenario:**
-1. Player has no artifacts
-2. Player generates combat_reveal proof claiming `[1, 2, 3, 4, 5, 6, 7, 8]` (all artifacts)
-3. Circuit computes inflated stats: HP=135, ATK=33, DEF=20
-4. Player dominates combat with fake stats
-
-**Impact:**  
-**Complete combat system compromise.** Any player can claim maximum stats regardless of actual progression.
-
-**Recommendation:**  
-The circuit needs to verify artifact ownership. Options:
-
-**Option A: Merkle Proof of Inventory**
-```noir
-// Add merkle root of player's inventory as public input
-// Add merkle proofs for each claimed artifact
-inventory_root: pub Field,
-merkle_paths: [[Field; TREE_DEPTH]; MAX_ARTIFACTS],
-```
-
-**Option B: Commitment to Artifact Set**
-```noir
-// Player commits to their artifact set when collecting
-// Circuit verifies the commitment matches claimed artifacts
-artifact_set_commitment: pub Field,
-artifact_set_salt: Field,
-// ...
-let computed_set = poseidon([...artifact_ids, artifact_set_salt]);
-assert(computed_set == artifact_set_commitment);
-```
-
----
-
-#### [HIGH] CR-2: Missing Position Bounds Check
-
-**Severity:** High  
-**Status:** Confirmed
-
-**Description:**  
-Unlike other circuits, combat_reveal does not validate that `x` and `y` are within the valid grid (0-15). Arbitrary Field values can be used for the position.
-
-```noir
-fn main(
-    x: Field,  // No bounds check!
-    y: Field,  // No bounds check!
-    // ...
-)
-```
-
-**Impact:**  
-If the commitment scheme or other circuits rely on positions being bounded, this inconsistency could lead to unexpected behavior. While the commitment itself binds the position, the lack of bounds validation is a defense-in-depth failure.
-
-**Recommendation:**  
-Add explicit bounds checks:
-```noir
-let x_u8 = x as u8;
-let y_u8 = y as u8;
-assert(x_u8 < 16, "X out of bounds");
-assert(y_u8 < 16, "Y out of bounds");
-```
-
----
-
-#### [HIGH] CR-3: Artifact Duplication Allowed
-
-**Severity:** High  
-**Status:** Confirmed (possibly intentional)
-
-**Description:**  
-The circuit allows the same artifact ID to appear multiple times in the array, enabling stat stacking. The test `test_duplicate_artifacts` explicitly demonstrates this:
-
-```noir
-#[test]
-fn test_duplicate_artifacts() {
-    // Two Shadow Blades: HP=100, ATK=10+5+5=20, DEF=5
-    let artifacts: [u32; MAX_ARTIFACTS] = [1, 1, 0, 0, 0, 0, 0, 0];
-    // ...
-}
-```
-
-**Impact:**  
-If not intended, players could stack the same artifact's bonuses 8 times:
-- 8x Shadow Blade: +40 ATK
-- 8x Vitality Amulet: +160 HP
-
-**Recommendation:**  
-If duplicates should be disallowed, add uniqueness check:
+**Solution:**
 ```noir
 for i in 0..MAX_ARTIFACTS {
     for j in (i + 1)..MAX_ARTIFACTS {
-        if artifact_ids[i] != 0 && artifact_ids[j] != 0 {
-            assert(artifact_ids[i] != artifact_ids[j], "Duplicate artifact");
+        if (artifact_ids[i] != 0) & (artifact_ids[j] != 0) {
+            assert(artifact_ids[i] != artifact_ids[j], "Duplicate artifact in claimed set");
         }
     }
 }
 ```
 
-If duplicates ARE intended (rare drops of same type), document this explicitly.
+### Medium Severity Fixes
 
----
+#### VM-1: Old Position Wall Check Added ✅
 
-#### [LOW] CR-4: game_id Zero Check Only
+**Problem:** Only new position was checked for walls, not old position.
 
-**Severity:** Low  
-**Status:** Confirmed
-
-**Description:**  
-The circuit only checks that `game_id != 0`. It doesn't bind the proof to any specific game state or verify the game exists.
-
+**Solution:**
 ```noir
-assert(game_id != 0, "Invalid game ID");
+// Check OLD position is not a wall
+let old_row_bits = map_walls[oy as u32] as u32;
+let old_bit = (old_row_bits >> ox) & 1;
+assert(old_bit == 0, "Old position is a wall");
+
+// Check NEW position is not a wall (existing)
+let new_row_bits = map_walls[ny as u32] as u32;
+let new_bit = (new_row_bits >> nx) & 1;
+assert(new_bit == 0, "New position is a wall");
 ```
 
-**Impact:**  
-Low, since the contract likely validates game_id separately. However, the circuit alone provides weak game binding.
+### Low Severity Fixes
 
-**Recommendation:**  
-Consider binding to game state hash for stronger guarantees:
+#### PC-1: Bounds Checks Added to position_commit ✅
+
+**Problem:** No coordinate validation in base commitment circuit.
+
+**Solution:**
 ```noir
-game_state_hash: pub Field,  // Hash of relevant game state
-```
-
----
-
-#### [INFO] CR-5: Good Practice - Underflow Protection
-
-**Severity:** Info  
-**Status:** N/A
-
-The circuit properly handles negative stat modifiers using separate bonus/penalty tracking and floor values, preventing u32 underflow:
-```noir
-let hp = if raw_hp > hp_penalty {
-    let result = raw_hp - hp_penalty;
-    if result < 1 { 1 } else { result }
-} else {
-    1
-};
+assert(x as u8 < 16, "X coordinate out of bounds");
+assert(y as u8 < 16, "Y coordinate out of bounds");
 ```
 
 ---
 
-## Summary of Recommendations
+## Test Coverage
 
-### Critical (Must Fix)
+All circuits pass comprehensive test suites:
 
-1. **CA-1:** Add nullifier mechanism to claim_artifact to prevent replay attacks
-2. **CR-1:** Add artifact ownership verification to combat_reveal
+| Circuit | Tests | Coverage |
+|---------|-------|----------|
+| position_commit | 7 | Bounds, commitments, edge cases |
+| valid_move | 13 | Movement, walls, bounds, adjacency |
+| claim_artifact | 12 | Nullifiers, treasures, bounds, replay |
+| combat_reveal | 14 | Ownership, uniqueness, bounds, stats |
 
-### High (Should Fix)
-
-3. **CR-2:** Add position bounds checks to combat_reveal
-4. **CR-3:** Add artifact uniqueness check OR document that duplicates are intentional
-
-### Medium (Consider Fixing)
-
-5. **VM-1:** Add old position wall check to valid_move
-
-### Low (Optional)
-
-6. **PC-1:** Add bounds checks to position_commit for defense-in-depth
-7. **CR-4:** Consider stronger game binding than just game_id != 0
+**Total: 46 tests passing**
 
 ---
 
-## Testing Recommendations
+## Contract Integration Requirements
 
-The circuits have good "should fail" tests. Additional tests recommended:
+For the security fixes to be effective, the smart contract MUST:
 
-1. **Replay test for claim_artifact:** Verify contract rejects duplicate proofs (requires nullifier)
-2. **Fake inventory test for combat_reveal:** Verify contract cross-checks artifact ownership
-3. **Edge case: 8 identical artifacts** - Verify expected behavior
-4. **Edge case: Maximum negative modifiers** - Verify stats don't underflow below floors
-5. **Fuzz testing:** Random valid/invalid inputs to find edge cases
+1. **Nullifier tracking** (claim_artifact):
+   - Store `mapping(bytes32 => bool) usedNullifiers`
+   - Reject proofs with previously-used nullifiers
+   - `require(!usedNullifiers[nullifier], "Already claimed")`
+
+2. **Inventory commitment tracking** (combat_reveal):
+   - Store `mapping(address => bytes32) inventoryCommitments`
+   - Update commitment when player claims new artifacts
+   - Pass current commitment as public input to combat_reveal
+
+3. **Proof verification**:
+   - Update verifier contracts with new circuit ABIs
+   - claim_artifact now has 4 public inputs (was 3)
+   - combat_reveal now has 4 public inputs (was 3)
+
+---
+
+## Remaining Considerations
+
+### CR-4: Game Binding (Low - Documented)
+The circuit only checks `game_id != 0`. Stronger binding (e.g., game state hash) would provide better guarantees but adds complexity. Current design is acceptable if the contract validates game_id appropriately.
+
+### Circuit Compatibility
+**Breaking change:** Circuit interfaces changed. Existing proofs are incompatible. Redeploy verifiers and regenerate all proofs.
 
 ---
 
 ## Overall Assessment
 
-**Risk Level: HIGH**
+**Risk Level: LOW** (after fixes)
 
-The circuits demonstrate solid understanding of ZK constraint systems and include good practices like:
-- Commitment verification
-- Domain separation
-- Map hash binding
-- Underflow protection
+All critical and high severity issues have been addressed. The circuits now provide:
+- Replay protection via nullifiers
+- Ownership verification via inventory commitments  
+- Proper bounds checking
+- Duplicate artifact prevention
+- Wall collision detection for both positions
 
-However, the **two critical findings** (missing nullifier in claim_artifact, missing ownership check in combat_reveal) represent fundamental design gaps that would allow complete exploitation of game mechanics. These must be addressed before deployment.
-
-The architecture assumes the smart contract will enforce rules the circuits don't verify. This is a valid pattern, but creates a critical dependency on contract correctness. Consider whether moving more validation into circuits would improve security guarantees.
+The system is ready for deployment pending contract updates to support the new public inputs.
 
 ---
 

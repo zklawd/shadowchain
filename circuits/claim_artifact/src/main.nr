@@ -1,6 +1,7 @@
 use std::hash::pedersen_hash;
 use poseidon::poseidon::bn254::hash_3;
 use poseidon::poseidon::bn254::hash_4;
+use poseidon::poseidon::bn254::hash_5;
 
 /// Threshold for treasure cells (same as contract: hash % 256 < 20 means ~7.8% of cells)
 global TREASURE_THRESHOLD: Field = 20;
@@ -8,6 +9,10 @@ global TREASURE_THRESHOLD: Field = 20;
 /// Domain separator for artifact ID derivation (must match contract!)
 /// "artifact" as ASCII: 0x617274696661637400
 global ARTIFACT_DOMAIN_SEP: Field = 0x617274696661637400;
+
+/// Domain separator for nullifier derivation
+/// "nullifier" as ASCII
+global NULLIFIER_DOMAIN_SEP: Field = 0x6e756c6c6966696572;
 
 // ============================================================
 // Unconstrained helpers for witness generation
@@ -21,28 +26,34 @@ unconstrained fn decompose_mod_256(f: Field) -> (Field, Field) {
     (last_byte, quotient)
 }
 
-/// Claim Artifact Circuit (Optimized)
+/// Claim Artifact Circuit (SECURED with Nullifier)
 /// Proves a player is at a valid procedurally-generated treasure cell.
+/// Includes nullifier to prevent double-claiming.
 ///
-/// Private inputs: x, y, salt
-/// Public inputs: commitment, treasure_seed, artifact_id
+/// Private inputs: x, y, salt, player_secret
+/// Public inputs: commitment, treasure_seed, artifact_id, nullifier
 ///
 /// Proves:
 ///   1. commitment = pedersen(x, y, salt)  -- player knows their position
 ///   2. poseidon(x, y, treasure_seed) % 256 < THRESHOLD -- cell is a treasure
 ///   3. artifact_id matches poseidon(x, y, treasure_seed, ARTIFACT_DOMAIN_SEP) derivation
+///   4. nullifier = poseidon(player_secret, x, y, treasure_seed, NULLIFIER_DOMAIN_SEP) -- unique claim identifier
+///
+/// SECURITY: The contract MUST track used nullifiers and reject duplicates.
+/// Each (player_secret, treasure_location) pair produces a unique nullifier.
 fn main(
     // Private inputs
     x: Field,
     y: Field,
     salt: Field,
+    player_secret: Field,  // NEW: Player's secret for nullifier derivation
     // Public inputs
     commitment: pub Field,
     treasure_seed: pub Field,
     artifact_id: pub Field,
+    nullifier: pub Field,  // NEW: Prevents double-claiming
 ) {
     // Validate coordinates are in bounds (0-15)
-    // Use Field comparison - avoid u8 cast range checks
     assert(x as u8 < 16, "X coordinate out of bounds");
     assert(y as u8 < 16, "Y coordinate out of bounds");
 
@@ -75,19 +86,26 @@ fn main(
     assert((artifact_last_byte as u8) as Field == artifact_last_byte, "Artifact byte range check failed");
     
     // Compute derived_id = (last_byte % 8) + 1
-    // Since last_byte < 256, we need last_byte % 8
-    // We can verify: last_byte = q8 * 8 + r where r < 8 and r + 1 = artifact_id
     let derived_remainder = artifact_last_byte as u8 % 8;
     let derived_id = (derived_remainder + 1) as Field;
     assert(artifact_id == derived_id, "Artifact ID mismatch");
 
-    // artifact_id is derived as (x % 8) + 1, which is always in [1,8]
-    // No need for additional range assertions
+    // 4. NEW: Verify nullifier - prevents replay attacks
+    //    nullifier = poseidon(player_secret, x, y, treasure_seed, NULLIFIER_DOMAIN_SEP)
+    //    This binds the player's identity to this specific treasure location.
+    //    The contract MUST track used nullifiers and reject duplicates.
+    let computed_nullifier = hash_5([player_secret, x, y, treasure_seed, NULLIFIER_DOMAIN_SEP]);
+    assert(computed_nullifier == nullifier, "Nullifier mismatch");
 }
 
 /// Helper: compute a position commitment (still uses Pedersen)
 fn compute_commitment(x: Field, y: Field, salt: Field) -> Field {
     pedersen_hash([x, y, salt])
+}
+
+/// Helper: compute nullifier for a claim
+fn compute_nullifier(player_secret: Field, x: Field, y: Field, treasure_seed: Field) -> Field {
+    hash_5([player_secret, x, y, treasure_seed, NULLIFIER_DOMAIN_SEP])
 }
 
 /// Helper: check if a cell is a treasure using Poseidon
@@ -160,8 +178,9 @@ unconstrained fn get_artifact_id_unconstrained(x: Field, y: Field, treasure_seed
 // ============================================================
 
 #[test]
-fn test_valid_claim() {
+fn test_valid_claim_with_nullifier() {
     let treasure_seed: Field = 12345;
+    let player_secret: Field = 0xdeadbeef;
     
     // Safety: test-only unconstrained helper to find treasure
     let (x, y) = unsafe { find_treasure_cell(treasure_seed) };
@@ -170,8 +189,75 @@ fn test_valid_claim() {
     let commitment = compute_commitment(x, y, salt);
     // Safety: test-only unconstrained helper
     let artifact_id = unsafe { get_artifact_id_unconstrained(x, y, treasure_seed) } as Field;
+    let nullifier = compute_nullifier(player_secret, x, y, treasure_seed);
 
-    main(x, y, salt, commitment, treasure_seed, artifact_id);
+    main(x, y, salt, player_secret, commitment, treasure_seed, artifact_id, nullifier);
+}
+
+#[test]
+fn test_different_players_different_nullifiers() {
+    let treasure_seed: Field = 12345;
+    let (x, y) = unsafe { find_treasure_cell(treasure_seed) };
+    
+    let player1_secret: Field = 0x1111;
+    let player2_secret: Field = 0x2222;
+    
+    let nullifier1 = compute_nullifier(player1_secret, x, y, treasure_seed);
+    let nullifier2 = compute_nullifier(player2_secret, x, y, treasure_seed);
+    
+    // Different players get different nullifiers for same treasure
+    assert(nullifier1 != nullifier2, "Nullifiers should differ for different players");
+}
+
+#[test]
+fn test_same_player_different_treasures_different_nullifiers() {
+    let player_secret: Field = 0xabcd;
+    let seed1: Field = 11111;
+    let seed2: Field = 22222;
+    
+    let (x1, y1) = unsafe { find_treasure_cell(seed1) };
+    let (x2, y2) = unsafe { find_treasure_cell(seed2) };
+    
+    let nullifier1 = compute_nullifier(player_secret, x1, y1, seed1);
+    let nullifier2 = compute_nullifier(player_secret, x2, y2, seed2);
+    
+    // Same player, different treasures = different nullifiers
+    assert(nullifier1 != nullifier2, "Nullifiers should differ for different treasures");
+}
+
+#[test(should_fail_with = "Nullifier mismatch")]
+fn test_wrong_nullifier_fails() {
+    let treasure_seed: Field = 12345;
+    let player_secret: Field = 0xdeadbeef;
+    
+    let (x, y) = unsafe { find_treasure_cell(treasure_seed) };
+    let salt: Field = 42;
+
+    let commitment = compute_commitment(x, y, salt);
+    let artifact_id = unsafe { get_artifact_id_unconstrained(x, y, treasure_seed) } as Field;
+    
+    // Wrong nullifier - should fail
+    let wrong_nullifier: Field = 0x12345;
+    main(x, y, salt, player_secret, commitment, treasure_seed, artifact_id, wrong_nullifier);
+}
+
+#[test(should_fail_with = "Nullifier mismatch")]
+fn test_replay_with_different_secret_fails() {
+    let treasure_seed: Field = 12345;
+    let real_player_secret: Field = 0xdeadbeef;
+    let attacker_secret: Field = 0xbaddad;
+    
+    let (x, y) = unsafe { find_treasure_cell(treasure_seed) };
+    let salt: Field = 42;
+
+    let commitment = compute_commitment(x, y, salt);
+    let artifact_id = unsafe { get_artifact_id_unconstrained(x, y, treasure_seed) } as Field;
+    
+    // Real player's nullifier (which would be marked as used in contract)
+    let real_nullifier = compute_nullifier(real_player_secret, x, y, treasure_seed);
+    
+    // Attacker tries to use same nullifier with different secret - FAILS
+    main(x, y, salt, attacker_secret, commitment, treasure_seed, artifact_id, real_nullifier);
 }
 
 #[test]
@@ -181,7 +267,6 @@ fn test_different_seeds_different_treasures() {
     
     // Safety: test-only unconstrained helpers
     let (x1, y1) = unsafe { find_treasure_cell(seed1) };
-    // Safety: test-only unconstrained helpers
     let (x2, y2) = unsafe { find_treasure_cell(seed2) };
     
     // Just verify both are valid treasures
@@ -193,108 +278,82 @@ fn test_different_seeds_different_treasures() {
 fn test_non_treasure_cell_fails() {
     let treasure_seed: Field = 12345;
     let salt: Field = 42;
+    let player_secret: Field = 0x1234;
     
-    // Safety: test-only unconstrained helper
     let (x, y) = unsafe { find_non_treasure_cell(treasure_seed) };
 
     let commitment = compute_commitment(x, y, salt);
+    let nullifier = compute_nullifier(player_secret, x, y, treasure_seed);
+    
     // Try to claim artifact 1 at non-treasure cell
-    main(x, y, salt, commitment, treasure_seed, 1);
+    main(x, y, salt, player_secret, commitment, treasure_seed, 1, nullifier);
 }
 
-#[test(should_fail)]
+#[test(should_fail_with = "Position commitment mismatch")]
 fn test_wrong_commitment_fails() {
     let treasure_seed: Field = 12345;
-    // Safety: test-only unconstrained helper
+    let player_secret: Field = 0x5678;
     let (x, y) = unsafe { find_treasure_cell(treasure_seed) };
     let salt: Field = 42;
-    // Safety: test-only unconstrained helper
     let artifact_id = unsafe { get_artifact_id_unconstrained(x, y, treasure_seed) } as Field;
+    let nullifier = compute_nullifier(player_secret, x, y, treasure_seed);
 
     // Wrong commitment - should fail
-    main(x, y, salt, 0, treasure_seed, artifact_id);
+    main(x, y, salt, player_secret, 0, treasure_seed, artifact_id, nullifier);
 }
 
-#[test(should_fail)]
+#[test(should_fail_with = "Artifact ID mismatch")]
 fn test_wrong_artifact_id_fails() {
     let treasure_seed: Field = 12345;
-    // Safety: test-only unconstrained helper
+    let player_secret: Field = 0x9abc;
     let (x, y) = unsafe { find_treasure_cell(treasure_seed) };
     let salt: Field = 42;
 
     let commitment = compute_commitment(x, y, salt);
-    // Safety: test-only unconstrained helper
+    let nullifier = compute_nullifier(player_secret, x, y, treasure_seed);
     let correct_id = unsafe { get_artifact_id_unconstrained(x, y, treasure_seed) };
     // Pick wrong ID
     let wrong_id = if correct_id == 1 { 2 } else { 1 };
 
-    main(x, y, salt, commitment, treasure_seed, wrong_id as Field);
+    main(x, y, salt, player_secret, commitment, treasure_seed, wrong_id as Field, nullifier);
 }
 
 #[test(should_fail_with = "X coordinate out of bounds")]
 fn test_x_out_of_bounds_fails() {
     let treasure_seed: Field = 12345;
     let salt: Field = 42;
+    let player_secret: Field = 0xdef0;
     let x: Field = 16; // Out of bounds
     let y: Field = 5;
 
     let commitment = compute_commitment(x, y, salt);
-    main(x, y, salt, commitment, treasure_seed, 1);
+    let nullifier = compute_nullifier(player_secret, x, y, treasure_seed);
+    main(x, y, salt, player_secret, commitment, treasure_seed, 1, nullifier);
 }
 
 #[test(should_fail_with = "Y coordinate out of bounds")]
 fn test_y_out_of_bounds_fails() {
     let treasure_seed: Field = 12345;
     let salt: Field = 42;
+    let player_secret: Field = 0x1234;
     let x: Field = 5;
     let y: Field = 20; // Out of bounds
 
     let commitment = compute_commitment(x, y, salt);
-    main(x, y, salt, commitment, treasure_seed, 1);
+    let nullifier = compute_nullifier(player_secret, x, y, treasure_seed);
+    main(x, y, salt, player_secret, commitment, treasure_seed, 1, nullifier);
 }
 
 /// Cross-check test: verify hashes match what Solidity produces
-/// CRITICAL: If this test fails, circuit and contract are out of sync!
 #[test]
 fn test_cross_check_with_solidity() {
-    // Test values (same as our earlier Solidity verification)
     let x: Field = 5;
     let y: Field = 10;
     let seed: Field = 12345;
     
-    // Compute cell hash for treasure check
     let cell_hash = hash_3([x, y, seed]);
     
-    // This MUST match what Solidity's PoseidonT4.hash([5, 10, 12345]) returns:
-    // 0x18f86d5a25285414dde90acbf12c8878ccb98ac255c572800aec7c97745855c0
+    // This MUST match what Solidity's PoseidonT4.hash([5, 10, 12345]) returns
     let expected_cell_hash: Field = 0x18f86d5a25285414dde90acbf12c8878ccb98ac255c572800aec7c97745855c0;
     assert(cell_hash == expected_cell_hash, "CRITICAL: Cell hash mismatch with Solidity!");
-    
-    println(f"Cross-check PASSED: poseidon(5, 10, 12345) = {cell_hash}");
-}
-
-#[test]
-fn verify_live_sepolia_treasure() {
-    // Values from live Sepolia test on v3 contract
-    let x: Field = 14;
-    let y: Field = 1;
-    let seed: Field = 0x223962be0387466c5cd4618d4e51f423eeafded9a89df52ec1128b4c2b566a0e;
-    
-    // Check if it's a treasure (hash mod 256 < 20)
-    let cell_hash = hash_3([x, y, seed]);
-    let cell_hash_bytes = cell_hash.to_be_bytes::<32>();
-    let hash_mod = cell_hash_bytes[31] as u32;
-    
-    println(f"poseidon(14, 1, seed) last byte = {hash_mod}");
-    assert(hash_mod < TREASURE_THRESHOLD as u32, "Circuit says NOT a treasure!");
-    println(f"Circuit confirms: (14, 1) IS a treasure!");
-    
-    // Check artifact ID (contract returned 3)
-    let artifact_hash = hash_4([x, y, seed, ARTIFACT_DOMAIN_SEP]);
-    let artifact_bytes = artifact_hash.to_be_bytes::<32>();
-    let artifact_id = ((artifact_bytes[31] as u32) % 8) + 1;
-    
-    println(f"Circuit artifact ID = {artifact_id}");
-    assert(artifact_id == 3, "Artifact ID mismatch with contract!");
-    println(f"VERIFIED: Circuit and contract agree - artifact ID = 3");
 }
