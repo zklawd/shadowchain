@@ -1,0 +1,8 @@
+[workspace]
+members = [
+  "claim_artifact",
+"combat_reveal",
+"poseidon_test",
+"position_commit",
+"valid_move"
+]
