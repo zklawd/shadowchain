@@ -7,7 +7,7 @@
 
 | ID | Issue | Branch | Status | Notes |
 |----|-------|--------|--------|-------|
-| C-01 | claim_artifact missing treasure validation | `fix/c01-treasure-validation` | ⏳ PENDING | |
+| C-01 | claim_artifact missing treasure validation | `fix/c02-nullifier-and-ownership` | ✅ FIXED | Included in circuit restore (Poseidon hash check) |
 | C-02 | Circuit/contract nullifier mismatch | `fix/c02-nullifier-and-ownership` | ✅ FIXED | Restored secured circuits from 087b147 |
 | C-03 | combat_reveal no co-location proof | `fix/c03-combat-colocation` | ⏳ PENDING | |
 
@@ -15,8 +15,8 @@
 
 | ID | Issue | Branch | Status | Notes |
 |----|-------|--------|--------|-------|
-| H-01 | submitMove no public input validation | `fix/h01-move-validation` | ⏳ PENDING | |
-| H-02 | ArtifactRegistry no access control | `fix/h02-registry-access` | ⏳ PENDING | |
+| H-01 | submitMove no public input validation | `fix/c02-nullifier-and-ownership` | ✅ FIXED | Added public input validation in submitMove |
+| H-02 | ArtifactRegistry no access control | `fix/c02-nullifier-and-ownership` | ✅ FIXED | Added onlyGame modifier |
 | H-03 | No game_id in move proofs | `fix/h03-game-binding` | ⏳ PENDING | |
 | H-04 | combat_reveal allows duplicate artifacts | `fix/c02-nullifier-and-ownership` | ✅ FIXED | Included in circuit restore |
 
@@ -28,7 +28,7 @@
 | M-02 | Weak combat randomness | `fix/m02-randomness` | ⏳ PENDING | |
 | M-03 | position_commit no bounds | `fix/c02-nullifier-and-ownership` | ✅ FIXED | Bounds checks added to position_commit |
 | M-04 | Prize griefing | `fix/m04-pull-payment` | ⏳ PENDING | |
-| M-05 | setMapHash no access control | `fix/m05-maphash-access` | ⏳ PENDING | |
+| M-05 | setMapHash no access control | `fix/c02-nullifier-and-ownership` | ✅ FIXED | Added creator-only check |
 
 ## Workflow Per Issue
 
@@ -93,8 +93,32 @@
 - **Total: 46 tests passed**
 
 **Next Steps:**
-- Contract must be updated to match new circuit interfaces
 - Verifiers must be regenerated
+
+---
+
+### 2026-01-29 ~07:45 UTC - H-01, H-02, M-05 (Contract Fixes)
+
+**Changes:**
+
+1. **ShadowChainGame.sol - submitMove (H-01)**:
+   - Added validation that public inputs match on-chain state
+   - `publicInputs[0]` must match player's current commitment
+   - `publicInputs[1]` must match the new commitment parameter
+   - `publicInputs[2]` must match the game's stored map hash
+   - Prevents proof substitution attacks
+
+2. **ShadowChainGame.sol - setMapHash (M-05)**:
+   - Added `msg.sender == g.creator` check
+   - Only game creator can set the map hash
+   - Prevents malicious map hash manipulation
+
+3. **ArtifactRegistry.sol (H-02)**:
+   - Added `gameContract` state variable
+   - Added `onlyGame` modifier
+   - `claimArtifactProcedural` now protected by `onlyGame`
+   - Added `setGameContract()` for initialization
+   - Prevents unauthorized artifact claims
 
 ---
 *Auto-generated tracker for overnight security fix session*

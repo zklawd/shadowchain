@@ -245,12 +245,14 @@ contract ShadowChainGame is ReentrancyGuard {
     }
 
     /// @notice Set the map hash for a game (Pedersen hash of wall row bitmasks).
-    ///         Can be called once per game before it starts. The hash is deterministic
-    ///         from the public wallBitmap, so anyone can verify it off-chain.
+    ///         Can be called once per game before it starts by the game creator.
+    ///         The hash is deterministic from the public wallBitmap, so anyone can verify it off-chain.
     /// @param gameId The game ID
     /// @param _mapHash Pedersen hash of the 16 wall row bitmasks
     function setMapHash(uint256 gameId, bytes32 _mapHash) external {
         Game storage g = games[gameId];
+        // SECURITY FIX (M-05): Only creator can set map hash
+        require(msg.sender == g.creator, "Only creator can set map hash");
         require(g.state == GameState.Created, "Game already started");
         require(mapHashes[gameId] == bytes32(0), "Map hash already set");
         require(_mapHash != bytes32(0), "Empty map hash");
@@ -318,7 +320,7 @@ contract ShadowChainGame is ReentrancyGuard {
     /// @param gameId The game ID
     /// @param newCommitment New position commitment after the move
     /// @param proof ZK proof of valid move (from old commitment to new commitment)
-    /// @param publicInputs Public inputs for the proof
+    /// @param publicInputs Public inputs for the proof: [old_commitment, new_commitment, map_hash]
     function submitMove(
         uint256 gameId,
         bytes32 newCommitment,
@@ -332,6 +334,14 @@ contract ShadowChainGame is ReentrancyGuard {
         require(p.status == PlayerStatus.Alive, "Player not alive");
         require(!p.hasSubmittedThisTurn, "Already submitted this turn");
         require(newCommitment != bytes32(0), "Empty commitment");
+
+        // SECURITY FIX (H-01): Validate public inputs match on-chain state
+        // This prevents proof substitution attacks where an attacker submits
+        // a valid proof for a different move than what they're claiming
+        require(publicInputs.length >= 3, "Missing public inputs");
+        require(publicInputs[0] == p.commitment, "Old commitment mismatch");
+        require(publicInputs[1] == newCommitment, "New commitment mismatch");
+        require(publicInputs[2] == mapHashes[gameId], "Map hash mismatch");
 
         // Verify ZK proof of valid move
         require(moveVerifier.verify(proof, publicInputs), "Invalid move proof");

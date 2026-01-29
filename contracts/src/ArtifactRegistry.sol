@@ -48,6 +48,9 @@ contract ArtifactRegistry {
     //                               STATE
     // =========================================================================
 
+    /// @notice The game contract that can call privileged functions
+    address public gameContract;
+
     /// @notice gameId → treasureCellIndex → claiming player (address(0) = unclaimed)
     mapping(uint256 => mapping(uint8 => address)) public claimedBy;
 
@@ -56,6 +59,34 @@ contract ArtifactRegistry {
 
     /// @notice gameId → player → list of artifact IDs they hold
     mapping(uint256 => mapping(address => uint8[])) public playerArtifacts;
+
+    // =========================================================================
+    //                              MODIFIERS
+    // =========================================================================
+
+    /// @notice SECURITY FIX (H-02): Only game contract can call protected functions
+    modifier onlyGame() {
+        require(msg.sender == gameContract, "ArtifactRegistry: caller is not game contract");
+        _;
+    }
+
+    // =========================================================================
+    //                            CONSTRUCTOR
+    // =========================================================================
+
+    /// @notice Set the game contract address
+    /// @param _gameContract The address of the ShadowChainGame contract
+    constructor(address _gameContract) {
+        gameContract = _gameContract;
+    }
+
+    /// @notice Set the game contract (can only be called once if not set in constructor)
+    /// @param _gameContract The address of the ShadowChainGame contract
+    function setGameContract(address _gameContract) external {
+        require(gameContract == address(0), "ArtifactRegistry: game contract already set");
+        require(_gameContract != address(0), "ArtifactRegistry: invalid game contract");
+        gameContract = _gameContract;
+    }
 
     // =========================================================================
     //                          ARTIFACT DEFINITIONS
@@ -135,12 +166,13 @@ contract ArtifactRegistry {
     /// @param player The claiming player's address
     /// @param cellIndex The cell index (y * 16 + x)
     /// @param artifactId The artifact ID (derived from treasureSeed by caller)
+    /// @dev SECURITY FIX (H-02): Protected by onlyGame modifier
     function claimArtifactProcedural(
         uint256 gameId,
         address player,
         uint8 cellIndex,
         uint8 artifactId
-    ) external {
+    ) external onlyGame {
         require(claimedBy[gameId][cellIndex] == address(0), "ArtifactRegistry: already claimed");
         require(artifactId >= 1 && artifactId <= NUM_ARTIFACTS, "ArtifactRegistry: invalid artifact ID");
 
