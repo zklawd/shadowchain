@@ -96,6 +96,10 @@ contract ShadowChainGameTest is Test {
         vm.prank(creator);
         gameId = game.createGame(SEED, 2, ENTRY_FEE);
 
+        // Set map hash before players join (so submitMove can verify it)
+        vm.prank(creator);
+        game.setMapHash(gameId, keccak256("map_hash"));
+
         vm.prank(alice);
         game.joinGame{value: ENTRY_FEE}(gameId, keccak256("alice_pos"), DUMMY_INVENTORY_COMMITMENT);
 
@@ -103,9 +107,29 @@ contract ShadowChainGameTest is Test {
         game.joinGame{value: ENTRY_FEE}(gameId, keccak256("bob_pos"), DUMMY_INVENTORY_COMMITMENT);
     }
 
+    /// @dev Build public inputs for submitMove
+    /// @param oldCommitment The player's current commitment
+    /// @param newCommitment The new commitment after the move
+    /// @param gameId The game ID
+    /// @return inputs The public inputs array [old, new, mapHash, gameId]
+    function _buildMoveInputs(
+        bytes32 oldCommitment,
+        bytes32 newCommitment,
+        uint256 gameId
+    ) internal view returns (bytes32[] memory inputs) {
+        inputs = new bytes32[](4);
+        inputs[0] = oldCommitment;
+        inputs[1] = newCommitment;
+        inputs[2] = game.mapHashes(gameId);
+        inputs[3] = bytes32(gameId);
+    }
+
     /// @dev Create, fill, and start a 4-player game
     function _createAndStartFullGame() internal returns (uint256 gameId) {
         gameId = _createGame();
+        // Set map hash before players join
+        vm.prank(creator);
+        game.setMapHash(gameId, keccak256("map_hash"));
         _joinGame(gameId, alice, keccak256("alice_pos"));
         _joinGame(gameId, bob, keccak256("bob_pos"));
         _joinGame(gameId, charlie, keccak256("charlie_pos"));
@@ -383,10 +407,14 @@ contract ShadowChainGameTest is Test {
 
     function test_submitMove() public {
         uint256 gameId = _createAndStartGame();
+        bytes32 oldCommitment = keccak256("alice_pos");
         bytes32 newCommitment = keccak256("alice_new_pos");
+        
+        // Build inputs before prank (vm.prank only affects next external call)
+        bytes32[] memory moveInputs = _buildMoveInputs(oldCommitment, newCommitment, gameId);
 
         vm.prank(alice);
-        game.submitMove(gameId, newCommitment, DUMMY_PROOF, DUMMY_INPUTS);
+        game.submitMove(gameId, newCommitment, DUMMY_PROOF, moveInputs);
 
         ShadowChainGame.Player memory p = game.getPlayer(gameId, alice);
         assertEq(p.commitment, newCommitment);
@@ -395,13 +423,17 @@ contract ShadowChainGameTest is Test {
 
     function test_submitMove_emitsEvent() public {
         uint256 gameId = _createAndStartGame();
+        bytes32 oldCommitment = keccak256("alice_pos");
         bytes32 newCommitment = keccak256("alice_new_pos");
+        
+        // Build inputs before prank
+        bytes32[] memory moveInputs = _buildMoveInputs(oldCommitment, newCommitment, gameId);
 
         vm.expectEmit(true, true, false, true);
         emit ShadowChainGame.MoveSubmitted(gameId, alice, 1, newCommitment);
 
         vm.prank(alice);
-        game.submitMove(gameId, newCommitment, DUMMY_PROOF, DUMMY_INPUTS);
+        game.submitMove(gameId, newCommitment, DUMMY_PROOF, moveInputs);
     }
 
     function test_submitMove_gameNotActive_reverts() public {
@@ -428,12 +460,19 @@ contract ShadowChainGameTest is Test {
 
     function test_submitMove_alreadySubmitted_reverts() public {
         uint256 gameId = _createAndStartGame();
+        bytes32 oldCommitment = keccak256("alice_pos");
+        bytes32 move1 = keccak256("move1");
+        bytes32 move2 = keccak256("move2");
+
+        // Build inputs before prank
+        bytes32[] memory moveInputs1 = _buildMoveInputs(oldCommitment, move1, gameId);
+        bytes32[] memory moveInputs2 = _buildMoveInputs(move1, move2, gameId);
 
         vm.startPrank(alice);
-        game.submitMove(gameId, keccak256("move1"), DUMMY_PROOF, DUMMY_INPUTS);
+        game.submitMove(gameId, move1, DUMMY_PROOF, moveInputs1);
 
         vm.expectRevert("Already submitted this turn");
-        game.submitMove(gameId, keccak256("move2"), DUMMY_PROOF, DUMMY_INPUTS);
+        game.submitMove(gameId, move2, DUMMY_PROOF, moveInputs2);
         vm.stopPrank();
     }
 
@@ -446,25 +485,40 @@ contract ShadowChainGameTest is Test {
     }
 
     function test_submitMove_invalidProof_reverts() public {
-        // Deploy game with reject verifier
+        // Deploy game with reject verifier and its own registry
+        ArtifactRegistry strictRegistry = new ArtifactRegistry();
         ShadowChainGame strictGame = new ShadowChainGame(
             address(rejectVerifier),
             address(mockVerifier),
             address(mockVerifier),
-            address(registry)
+            address(strictRegistry)
         );
+        strictRegistry.setGameContract(address(strictGame));
 
         vm.prank(creator);
         uint256 gameId = strictGame.createGame(SEED, 2, 0);
 
+        // Set map hash before players join
+        vm.prank(creator);
+        strictGame.setMapHash(gameId, keccak256("map_hash"));
+
+        bytes32 aliceCommit = keccak256("alice");
         vm.prank(alice);
-        strictGame.joinGame(gameId, keccak256("alice"), DUMMY_INVENTORY_COMMITMENT);
+        strictGame.joinGame(gameId, aliceCommit, DUMMY_INVENTORY_COMMITMENT);
         vm.prank(bob);
         strictGame.joinGame(gameId, keccak256("bob"), DUMMY_INVENTORY_COMMITMENT);
 
+        // Build proper public inputs
+        bytes32 newCommitment = keccak256("new");
+        bytes32[] memory moveInputs = new bytes32[](4);
+        moveInputs[0] = aliceCommit;
+        moveInputs[1] = newCommitment;
+        moveInputs[2] = strictGame.mapHashes(gameId);
+        moveInputs[3] = bytes32(gameId);
+
         vm.prank(alice);
         vm.expectRevert("Invalid move proof");
-        strictGame.submitMove(gameId, keccak256("new"), DUMMY_PROOF, DUMMY_INPUTS);
+        strictGame.submitMove(gameId, newCommitment, DUMMY_PROOF, moveInputs);
     }
 
     // =========================================================================
@@ -764,7 +818,12 @@ contract ShadowChainGameTest is Test {
         assertEq(uint8(g.state), uint8(ShadowChainGame.GameState.Resolved));
         assertEq(g.winner, bob);
 
-        // Bob should have received the prize
+        // Bob should have claimable prize (pull-payment pattern)
+        assertEq(game.claimablePrizes(bob), ENTRY_FEE * 2);
+
+        // Bob claims prize
+        vm.prank(bob);
+        game.claimPrize();
         assertEq(bob.balance, bobBalBefore + ENTRY_FEE * 2);
     }
 
@@ -797,10 +856,15 @@ contract ShadowChainGameTest is Test {
 
     function test_advanceTurn_resetsSubmissions() public {
         uint256 gameId = _createAndStartGame();
+        bytes32 oldCommitment = keccak256("alice_pos");
+        bytes32 newCommitment = keccak256("move1");
+        
+        // Build inputs before prank (vm.prank only affects next external call)
+        bytes32[] memory moveInputs = _buildMoveInputs(oldCommitment, newCommitment, gameId);
 
         // Alice submits a move
         vm.prank(alice);
-        game.submitMove(gameId, keccak256("move1"), DUMMY_PROOF, DUMMY_INPUTS);
+        game.submitMove(gameId, newCommitment, DUMMY_PROOF, moveInputs);
 
         ShadowChainGame.Player memory p1 = game.getPlayer(gameId, alice);
         assertTrue(p1.hasSubmittedThisTurn);
@@ -882,6 +946,13 @@ contract ShadowChainGameTest is Test {
         assertEq(uint8(g.state), uint8(ShadowChainGame.GameState.Resolved));
         assertEq(g.winner, alice);
         assertEq(g.prizePool, 0);
+
+        // Prize is claimable (pull-payment pattern)
+        assertEq(game.claimablePrizes(alice), prizeTotal);
+
+        // Alice claims prize
+        vm.prank(alice);
+        game.claimPrize();
         assertEq(alice.balance, aliceBalBefore + prizeTotal);
     }
 
@@ -944,6 +1015,12 @@ contract ShadowChainGameTest is Test {
         vm.prank(alice);
         game.forfeit(gameId);
 
+        // Prize is claimable (pull-payment pattern)
+        assertEq(game.claimablePrizes(bob), expectedPrize);
+
+        // Bob claims prize
+        vm.prank(bob);
+        game.claimPrize();
         assertEq(bob.balance, bobBalBefore + expectedPrize);
     }
 
@@ -1014,21 +1091,34 @@ contract ShadowChainGameTest is Test {
         vm.prank(creator);
         uint256 gameId = game.createGame(SEED, 2, ENTRY_FEE);
 
-        // Both players join
+        // Set map hash before players join
+        vm.prank(creator);
+        game.setMapHash(gameId, keccak256("map_hash"));
+
+        // Both players join with known commitments
+        bytes32 aliceCommit = keccak256("alice_start");
+        bytes32 bobCommit = keccak256("bob_start");
         vm.prank(alice);
-        game.joinGame{value: ENTRY_FEE}(gameId, keccak256("alice_start"), DUMMY_INVENTORY_COMMITMENT);
+        game.joinGame{value: ENTRY_FEE}(gameId, aliceCommit, DUMMY_INVENTORY_COMMITMENT);
         vm.prank(bob);
-        game.joinGame{value: ENTRY_FEE}(gameId, keccak256("bob_start"), DUMMY_INVENTORY_COMMITMENT);
+        game.joinGame{value: ENTRY_FEE}(gameId, bobCommit, DUMMY_INVENTORY_COMMITMENT);
 
         // Game should be active
         ShadowChainGame.Game memory g = game.getGame(gameId);
         assertEq(uint8(g.state), uint8(ShadowChainGame.GameState.Active));
 
         // Turn 1: Both players submit moves
+        bytes32 aliceT1 = keccak256("alice_t1");
+        bytes32 bobT1 = keccak256("bob_t1");
+        
+        // Build inputs before prank
+        bytes32[] memory aliceT1Inputs = _buildMoveInputs(aliceCommit, aliceT1, gameId);
+        bytes32[] memory bobT1Inputs = _buildMoveInputs(bobCommit, bobT1, gameId);
+        
         vm.prank(alice);
-        game.submitMove(gameId, keccak256("alice_t1"), DUMMY_PROOF, DUMMY_INPUTS);
+        game.submitMove(gameId, aliceT1, DUMMY_PROOF, aliceT1Inputs);
         vm.prank(bob);
-        game.submitMove(gameId, keccak256("bob_t1"), DUMMY_PROOF, DUMMY_INPUTS);
+        game.submitMove(gameId, bobT1, DUMMY_PROOF, bobT1Inputs);
 
         // Advance to turn 2
         vm.warp(block.timestamp + 61);
@@ -1052,8 +1142,10 @@ contract ShadowChainGameTest is Test {
         }
 
         // Turn 2: Bob submits a move
+        bytes32 bobT2 = keccak256("bob_t2");
+        bytes32[] memory bobT2Inputs = _buildMoveInputs(bobT1, bobT2, gameId);
         vm.prank(bob);
-        game.submitMove(gameId, keccak256("bob_t2"), DUMMY_PROOF, DUMMY_INPUTS);
+        game.submitMove(gameId, bobT2, DUMMY_PROOF, bobT2Inputs);
 
         // Update alice's inventory commitment for combat (if she claimed artifact)
         // Note: claimArtifact updates it, so we need matching inputs
