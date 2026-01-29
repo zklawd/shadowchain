@@ -46,6 +46,8 @@ export interface ClaimArtifactInputs {
   x: number;
   y: number;
   salt: bigint;
+  playerSecret: bigint;   // NEW: for nullifier derivation
+  treasureSeed: bigint;   // NEW: from contract
   artifactId: number;
 }
 
@@ -53,7 +55,7 @@ export interface ClaimArtifactResult {
   proof: Uint8Array;
   publicInputs: string[];
   commitment: string;
-  artifactCellHash: string;
+  nullifier: string;      // NEW: for double-claim prevention
 }
 
 export interface CombatRevealInputs {
@@ -61,7 +63,9 @@ export interface CombatRevealInputs {
   y: number;
   salt: bigint;
   playerSalt: bigint;
-  artifactIds: number[]; // length 4, padded with 0s
+  artifactIds: number[];      // Artifacts to use in combat (max 8)
+  ownedArtifacts: number[];   // NEW: Full inventory (must match inventoryCommitment)
+  inventorySalt: bigint;      // NEW: Salt for inventory commitment
   gameId: bigint;
 }
 
@@ -70,6 +74,16 @@ export interface CombatRevealResult {
   publicInputs: string[];
   commitment: string;
   statsCommitment: string;
+  inventoryCommitment: string; // NEW: for ownership verification
+}
+
+export interface InventoryCommitmentInputs {
+  ownedArtifacts: number[];   // 8 artifact IDs (0 for empty slots)
+  inventorySalt: bigint;
+}
+
+export interface InventoryCommitmentResult {
+  commitment: string;
 }
 
 // ── Circuit names ────────────────────────────────────────
@@ -318,37 +332,46 @@ export async function generateMoveProof(inputs: MoveProofInputs): Promise<MovePr
 
 /**
  * Generate a ZK proof for claiming an artifact.
- * Proves the player is at a specific treasure cell.
+ * Proves the player is at a valid procedurally-generated treasure cell.
+ * Includes nullifier to prevent double-claiming.
  *
- * Private inputs: x, y, salt
- * Public inputs: commitment, artifact_cell_hash, artifact_id
+ * Private inputs: x, y, salt, player_secret
+ * Public inputs: commitment, treasure_seed, artifact_id, nullifier
  */
 export async function generateClaimArtifactProof(
   inputs: ClaimArtifactInputs
 ): Promise<ClaimArtifactResult> {
   const { noir, backend } = await _loadCircuit('claim_artifact');
-  const { x, y, salt, artifactId } = inputs;
+  const { x, y, salt, playerSecret, treasureSeed, artifactId } = inputs;
 
-  // Compute position commitment = hash(x, y, salt)
+  // Compute position commitment = pedersen(x, y, salt)
   const commitment = await computePedersenHash([
     BigInt(x),
     BigInt(y),
     salt,
   ]);
 
-  // Compute cell hash = hash(x, y) — no salt, public knowledge
-  const artifactCellHash = await computePedersenHash([
+  // Compute nullifier = poseidon(player_secret, x, y, treasure_seed, domain_sep)
+  // Note: Using Pedersen here for simplicity - circuit uses Poseidon
+  // This needs to match what the circuit computes!
+  const NULLIFIER_DOMAIN_SEP = BigInt('0x6e756c6c6966696572'); // "nullifier" in ASCII
+  const nullifier = await computePoseidonHash([
+    playerSecret,
     BigInt(x),
     BigInt(y),
+    treasureSeed,
+    NULLIFIER_DOMAIN_SEP,
   ]);
 
   const circuitInputs = {
     x: toFieldHex(BigInt(x)),
     y: toFieldHex(BigInt(y)),
     salt: toFieldHex(salt),
+    player_secret: toFieldHex(playerSecret),
     commitment,
-    artifact_cell_hash: artifactCellHash,
+    treasure_seed: toFieldHex(treasureSeed),
     artifact_id: toFieldHex(BigInt(artifactId)),
+    nullifier,
   };
 
   console.log('[ZK] Generating claim_artifact proof…', { x, y, artifactId });
@@ -360,31 +383,49 @@ export async function generateClaimArtifactProof(
 
   return {
     proof: proof.proof,
-    publicInputs: [commitment, artifactCellHash, toFieldHex(BigInt(artifactId))],
+    publicInputs: [commitment, toFieldHex(treasureSeed), toFieldHex(BigInt(artifactId)), nullifier],
     commitment,
-    artifactCellHash,
+    nullifier,
   };
 }
 
 // ── Combat Reveal Proof ─────────────────────────────────
 
+// Artifact stat bonuses matching the circuit's lookup tables
+const ARTIFACT_STATS: Record<number, { hp: number; atk: number; def: number; hpPen: number; atkPen: number; defPen: number }> = {
+  0: { hp: 0, atk: 0, def: 0, hpPen: 0, atkPen: 0, defPen: 0 },       // Empty
+  1: { hp: 0, atk: 5, def: 0, hpPen: 0, atkPen: 0, defPen: 0 },       // Shadow Blade
+  2: { hp: 0, atk: 0, def: 5, hpPen: 0, atkPen: 0, defPen: 0 },       // Iron Aegis
+  3: { hp: 20, atk: 0, def: 0, hpPen: 0, atkPen: 0, defPen: 0 },      // Vitality Amulet
+  4: { hp: 0, atk: 8, def: 0, hpPen: 0, atkPen: 0, defPen: 2 },       // Berserker Helm
+  5: { hp: 10, atk: 0, def: 7, hpPen: 0, atkPen: 1, defPen: 0 },      // Phantom Cloak
+  6: { hp: 0, atk: 3, def: 3, hpPen: 0, atkPen: 0, defPen: 0 },       // War Gauntlets
+  7: { hp: 0, atk: 6, def: 0, hpPen: 10, atkPen: 0, defPen: 0 },      // Blood Crystal
+  8: { hp: 15, atk: 2, def: 2, hpPen: 0, atkPen: 0, defPen: 0 },      // Soul Vessel
+};
+
 /**
  * Generate a ZK proof revealing combat stats.
  * Proves player's HP/ATK/DEF are correctly derived from base stats + collected artifacts.
+ * Includes inventory commitment verification for artifact ownership.
  *
- * Private inputs: x, y, salt, player_salt, artifact_ids[4]
- * Public inputs: commitment, stats_commitment, game_id
+ * Private inputs: x, y, salt, player_salt, artifact_ids[8], owned_artifacts[8], inventory_salt
+ * Public inputs: commitment, stats_commitment, game_id, inventory_commitment
  */
 export async function generateCombatRevealProof(
   inputs: CombatRevealInputs
 ): Promise<CombatRevealResult> {
   const { noir, backend } = await _loadCircuit('combat_reveal');
-  const { x, y, salt, playerSalt, artifactIds, gameId } = inputs;
+  const { x, y, salt, playerSalt, artifactIds, ownedArtifacts, inventorySalt, gameId } = inputs;
 
-  // Pad artifact_ids to length 4
+  // Pad arrays to length 8
   const paddedArtifacts = [...artifactIds];
-  while (paddedArtifacts.length < 4) paddedArtifacts.push(0);
-  if (paddedArtifacts.length > 4) throw new Error('Too many artifacts (max 4)');
+  while (paddedArtifacts.length < 8) paddedArtifacts.push(0);
+  if (paddedArtifacts.length > 8) throw new Error('Too many artifact_ids (max 8)');
+
+  const paddedOwned = [...ownedArtifacts];
+  while (paddedOwned.length < 8) paddedOwned.push(0);
+  if (paddedOwned.length > 8) throw new Error('Too many owned_artifacts (max 8)');
 
   // Compute position commitment
   const commitment = await computePedersenHash([
@@ -393,23 +434,32 @@ export async function generateCombatRevealProof(
     salt,
   ]);
 
+  // Compute inventory commitment = pedersen(owned_artifacts[0..7], inventory_salt)
+  const inventoryCommitment = await computePedersenHash([
+    ...paddedOwned.map(id => BigInt(id)),
+    inventorySalt,
+  ]);
+
   // Compute stats from base + artifacts (mirrors the circuit logic)
-  let hp = 100, attack = 10, defense = 5; // BASE_HP, BASE_ATTACK, BASE_DEFENSE
-  const ARTIFACT_BONUSES: Record<number, [number, number, number]> = {
-    0: [0, 0, 0],
-    1: [20, 0, 0],  // HP Potion
-    2: [0, 5, 0],   // Sharp Blade
-    3: [0, 0, 5],   // Iron Shield
-    4: [10, 3, 3],  // War Relic
-  };
+  let hpBonus = 0, atkBonus = 0, defBonus = 0;
+  let hpPenalty = 0, atkPenalty = 0, defPenalty = 0;
+
   for (const aid of paddedArtifacts) {
-    const [hpB, atkB, defB] = ARTIFACT_BONUSES[aid] ?? [0, 0, 0];
-    hp += hpB;
-    attack += atkB;
-    defense += defB;
+    const stats = ARTIFACT_STATS[aid] ?? ARTIFACT_STATS[0];
+    hpBonus += stats.hp;
+    atkBonus += stats.atk;
+    defBonus += stats.def;
+    hpPenalty += stats.hpPen;
+    atkPenalty += stats.atkPen;
+    defPenalty += stats.defPen;
   }
 
-  // Compute stats commitment = hash(hp, attack, defense, player_salt)
+  const BASE_HP = 100, BASE_ATK = 10, BASE_DEF = 5;
+  let hp = Math.max(1, BASE_HP + hpBonus - hpPenalty);
+  let attack = Math.max(1, BASE_ATK + atkBonus - atkPenalty);
+  let defense = Math.max(0, BASE_DEF + defBonus - defPenalty);
+
+  // Compute stats commitment = pedersen(hp, attack, defense, player_salt)
   const statsCommitment = await computePedersenHash([
     BigInt(hp),
     BigInt(attack),
@@ -423,9 +473,12 @@ export async function generateCombatRevealProof(
     salt: toFieldHex(salt),
     player_salt: toFieldHex(playerSalt),
     artifact_ids: paddedArtifacts.map((id) => String(id)),
+    owned_artifacts: paddedOwned.map((id) => String(id)),
+    inventory_salt: toFieldHex(inventorySalt),
     commitment,
     stats_commitment: statsCommitment,
     game_id: toFieldHex(gameId),
+    inventory_commitment: inventoryCommitment,
   };
 
   console.log('[ZK] Generating combat_reveal proof…', { x, y, gameId: gameId.toString(), hp, attack, defense });
@@ -437,10 +490,32 @@ export async function generateCombatRevealProof(
 
   return {
     proof: proof.proof,
-    publicInputs: [commitment, statsCommitment, toFieldHex(gameId)],
+    publicInputs: [commitment, statsCommitment, toFieldHex(gameId), inventoryCommitment],
     commitment,
     statsCommitment,
+    inventoryCommitment,
   };
+}
+
+/**
+ * Compute an inventory commitment for use with joinGame and claimArtifact.
+ * commitment = pedersen(owned_artifacts[0..7], inventory_salt)
+ */
+export async function computeInventoryCommitment(
+  inputs: InventoryCommitmentInputs
+): Promise<InventoryCommitmentResult> {
+  const { ownedArtifacts, inventorySalt } = inputs;
+
+  const paddedOwned = [...ownedArtifacts];
+  while (paddedOwned.length < 8) paddedOwned.push(0);
+  if (paddedOwned.length > 8) throw new Error('Too many owned_artifacts (max 8)');
+
+  const commitment = await computePedersenHash([
+    ...paddedOwned.map(id => BigInt(id)),
+    inventorySalt,
+  ]);
+
+  return { commitment };
 }
 
 // ── Verification (for debugging) ────────────────────────
@@ -469,6 +544,19 @@ export async function computePedersenHash(inputs: bigint[]): Promise<string> {
   const frInputs = inputs.map((v) => bigintToFr(v));
   const result = await bb.pedersenHash({ inputs: frInputs, hashIndex: 0 });
   return frToHex(result.hash);
+}
+
+/**
+ * Compute Poseidon hash using Barretenberg.
+ * Matches Noir's `poseidon::poseidon::bn254::hash_N` functions.
+ * Used for nullifier derivation in claim_artifact.
+ */
+export async function computePoseidonHash(inputs: bigint[]): Promise<string> {
+  const bb = await _getBB();
+  const frInputs = inputs.map((v) => bigintToFr(v));
+  // Barretenberg's poseidonHash function
+  const result = await bb.poseidonHash(frInputs);
+  return frToHex(result);
 }
 
 /**

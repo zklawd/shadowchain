@@ -27,6 +27,7 @@ import {
   generateMoveProof,
   generateClaimArtifactProof,
   generateCombatRevealProof,
+  computeInventoryCommitment,
   randomSalt,
   proofToHex,
   publicInputsToBytes32,
@@ -47,22 +48,21 @@ import type {
 // ── Bitmap Parsing ──────────────────────────────────────
 
 /**
- * Parse a uint256 bitmap into a 16x16 Cell grid.
- * Bit i corresponds to cell at (i % 16, floor(i / 16)).
- * cellIndex(x, y) = y * 16 + x
+ * Parse a uint256 wall bitmap into a 16x16 Cell grid.
+ * Note: Treasures are now procedurally generated and not visible in bitmap.
+ * Use the contract's isTreasure(gameId, x, y) to check individual cells.
  */
-export function parseBitmapsToMap(wallBitmap: bigint, treasureBitmap: bigint): Cell[][] {
+export function parseBitmapsToMap(wallBitmap: bigint): Cell[][] {
   const map: Cell[][] = [];
   for (let y = 0; y < 16; y++) {
     const row: Cell[] = [];
     for (let x = 0; x < 16; x++) {
       const idx = BigInt(y * 16 + x);
       const isWall = (wallBitmap >> idx) & 1n;
-      const isTreasure = (treasureBitmap >> idx) & 1n;
 
       let type: CellType = 'empty';
       if (isWall) type = 'wall';
-      else if (isTreasure) type = 'treasure';
+      // Treasures are procedural - discovered when player steps on them
 
       row.push({ type, x, y });
     }
@@ -144,7 +144,9 @@ interface PrivateGameState {
   position: Position;
   salt: bigint;
   playerSalt: bigint;
-  artifactIds: number[];
+  playerSecret: bigint;     // NEW: for nullifier derivation in claim_artifact
+  inventorySalt: bigint;    // NEW: for inventory commitment
+  artifactIds: number[];    // Owned artifacts (up to 8)
 }
 
 function getStorageKey(gameId: string, address: string): string {
@@ -157,6 +159,8 @@ function savePrivateState(gameId: string, address: string, state: PrivateGameSta
       position: state.position,
       salt: state.salt.toString(),
       playerSalt: state.playerSalt.toString(),
+      playerSecret: state.playerSecret.toString(),
+      inventorySalt: state.inventorySalt.toString(),
       artifactIds: state.artifactIds,
     };
     localStorage.setItem(getStorageKey(gameId, address), JSON.stringify(data));
@@ -174,6 +178,8 @@ function loadPrivateState(gameId: string, address: string): PrivateGameState | n
       position: data.position,
       salt: BigInt(data.salt),
       playerSalt: BigInt(data.playerSalt),
+      playerSecret: data.playerSecret ? BigInt(data.playerSecret) : randomSalt(),
+      inventorySalt: data.inventorySalt ? BigInt(data.inventorySalt) : randomSalt(),
       artifactIds: data.artifactIds || [],
     };
   } catch {
@@ -189,7 +195,7 @@ interface OnChainGameData {
   entryFee: bigint;
   prizePool: bigint;
   wallBitmap: bigint;
-  treasureBitmap: bigint;
+  treasureSeed: string;     // CHANGED: procedural treasure seed (bytes32)
   currentTurn: number;
   maxTurns: number;
   maxPlayers: number;
@@ -274,7 +280,7 @@ export function useGameData(gameId: string) {
       entryFee: g.entryFee,
       prizePool: g.prizePool,
       wallBitmap: g.wallBitmap,
-      treasureBitmap: g.treasureBitmap,
+      treasureSeed: g.treasureSeed,  // Procedural treasure seed
       currentTurn: Number(g.currentTurn),
       maxTurns: Number(g.maxTurns),
       maxPlayers: Number(g.maxPlayers),
@@ -306,10 +312,10 @@ export function useGameData(gameId: string) {
       });
   }, [playersData]);
 
-  // Parse map
+  // Parse map (treasures are procedural, not in bitmap)
   const map = useMemo((): Cell[][] => {
     if (!game) return emptyMap();
-    return parseBitmapsToMap(game.wallBitmap, game.treasureBitmap);
+    return parseBitmapsToMap(game.wallBitmap);
   }, [game]);
 
   // Wall bitmasks for circuits
@@ -401,11 +407,11 @@ export function useGameActions(gameId: string) {
 
   // ── Join Game ──────────────────────────────────
   const joinGame = useCallback(
-    async (commitment: `0x${string}`, entryFee: bigint) => {
+    async (commitment: `0x${string}`, inventoryCommitment: `0x${string}`, entryFee: bigint) => {
       writeContract({
         ...shadowChainGameConfig,
         functionName: 'joinGame',
-        args: [gameIdBigInt, commitment],
+        args: [gameIdBigInt, commitment, inventoryCommitment],
         value: entryFee,
       });
     },
@@ -431,14 +437,16 @@ export function useGameActions(gameId: string) {
   // ── Claim Artifact ─────────────────────────────
   const claimArtifact = useCallback(
     (
-      cellIndex: number,
+      cellX: number,
+      cellY: number,
       proof: `0x${string}`,
-      publicInputs: `0x${string}`[]
+      publicInputs: `0x${string}`[],
+      newInventoryCommitment: `0x${string}`
     ) => {
       writeContract({
         ...shadowChainGameConfig,
         functionName: 'claimArtifact',
-        args: [gameIdBigInt, cellIndex, proof, publicInputs],
+        args: [gameIdBigInt, cellX, cellY, proof, publicInputs, newInventoryCommitment],
       });
     },
     [writeContract, gameIdBigInt]
