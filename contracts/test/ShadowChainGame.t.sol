@@ -77,16 +77,16 @@ contract ShadowChainGameTest is Test {
         gameId = game.createGame(SEED, MAX_PLAYERS, 0);
     }
 
-    /// @dev Join a game as a player
+    /// @dev Join a game as a player (includes inventory commitment)
     function _joinGame(uint256 gameId, address player, bytes32 commitment) internal {
         vm.prank(player);
-        game.joinGame{value: ENTRY_FEE}(gameId, commitment);
+        game.joinGame{value: ENTRY_FEE}(gameId, commitment, DUMMY_INVENTORY_COMMITMENT);
     }
 
-    /// @dev Join a free game
+    /// @dev Join a free game (includes inventory commitment)
     function _joinFreeGame(uint256 gameId, address player, bytes32 commitment) internal {
         vm.prank(player);
-        game.joinGame{value: 0}(gameId, commitment);
+        game.joinGame{value: 0}(gameId, commitment, DUMMY_INVENTORY_COMMITMENT);
     }
 
     /// @dev Create and fill a 2-player game, auto-starting it
@@ -95,16 +95,10 @@ contract ShadowChainGameTest is Test {
         gameId = game.createGame(SEED, 2, ENTRY_FEE);
 
         vm.prank(alice);
-        game.joinGame{value: ENTRY_FEE}(gameId, keccak256("alice_pos"));
+        game.joinGame{value: ENTRY_FEE}(gameId, keccak256("alice_pos"), DUMMY_INVENTORY_COMMITMENT);
 
         vm.prank(bob);
-        game.joinGame{value: ENTRY_FEE}(gameId, keccak256("bob_pos"));
-    }
-
-    /// @dev Initialize inventory commitment for a player (required before combat)
-    function _initializeInventory(uint256 gameId, address player) internal {
-        vm.prank(player);
-        game.initializeInventory(gameId, DUMMY_INVENTORY_COMMITMENT);
+        game.joinGame{value: ENTRY_FEE}(gameId, keccak256("bob_pos"), DUMMY_INVENTORY_COMMITMENT);
     }
 
     /// @dev Create, fill, and start a 4-player game
@@ -203,9 +197,9 @@ contract ShadowChainGameTest is Test {
         bytes32 commit2 = keccak256("bob_pos");
         
         vm.prank(alice);
-        game.joinGame{value: ENTRY_FEE}(gameId, commit1);
+        game.joinGame{value: ENTRY_FEE}(gameId, commit1, DUMMY_INVENTORY_COMMITMENT);
         vm.prank(bob);
-        game.joinGame{value: ENTRY_FEE}(gameId, commit2);
+        game.joinGame{value: ENTRY_FEE}(gameId, commit2, DUMMY_INVENTORY_COMMITMENT);
         
         // After start, treasureSeed should be computed from seed + commitments
         (, bytes32 seedAfter) = game.getGameMap(gameId);
@@ -226,7 +220,7 @@ contract ShadowChainGameTest is Test {
         bytes32 commitment = keccak256("alice_pos");
 
         vm.prank(alice);
-        game.joinGame{value: ENTRY_FEE}(gameId, commitment);
+        game.joinGame{value: ENTRY_FEE}(gameId, commitment, DUMMY_INVENTORY_COMMITMENT);
 
         ShadowChainGame.Player memory p = game.getPlayer(gameId, alice);
         assertEq(p.addr, alice);
@@ -249,7 +243,7 @@ contract ShadowChainGameTest is Test {
         emit ShadowChainGame.PlayerJoined(gameId, alice, 0);
 
         vm.prank(alice);
-        game.joinGame{value: ENTRY_FEE}(gameId, keccak256("pos"));
+        game.joinGame{value: ENTRY_FEE}(gameId, keccak256("pos"), DUMMY_INVENTORY_COMMITMENT);
     }
 
     function test_joinGame_wrongFee_reverts() public {
@@ -257,17 +251,17 @@ contract ShadowChainGameTest is Test {
 
         vm.prank(alice);
         vm.expectRevert("Incorrect entry fee");
-        game.joinGame{value: 0.05 ether}(gameId, keccak256("pos"));
+        game.joinGame{value: 0.05 ether}(gameId, keccak256("pos"), DUMMY_INVENTORY_COMMITMENT);
     }
 
     function test_joinGame_alreadyJoined_reverts() public {
         uint256 gameId = _createGame();
 
         vm.startPrank(alice);
-        game.joinGame{value: ENTRY_FEE}(gameId, keccak256("pos"));
+        game.joinGame{value: ENTRY_FEE}(gameId, keccak256("pos"), DUMMY_INVENTORY_COMMITMENT);
 
         vm.expectRevert("Already joined");
-        game.joinGame{value: ENTRY_FEE}(gameId, keccak256("pos2"));
+        game.joinGame{value: ENTRY_FEE}(gameId, keccak256("pos2"), DUMMY_INVENTORY_COMMITMENT);
         vm.stopPrank();
     }
 
@@ -276,7 +270,15 @@ contract ShadowChainGameTest is Test {
 
         vm.prank(alice);
         vm.expectRevert("Empty commitment");
-        game.joinGame{value: ENTRY_FEE}(gameId, bytes32(0));
+        game.joinGame{value: ENTRY_FEE}(gameId, bytes32(0), DUMMY_INVENTORY_COMMITMENT);
+    }
+
+    function test_joinGame_emptyInventoryCommitment_reverts() public {
+        uint256 gameId = _createGame();
+
+        vm.prank(alice);
+        vm.expectRevert("Empty inventory commitment");
+        game.joinGame{value: ENTRY_FEE}(gameId, keccak256("pos"), bytes32(0));
     }
 
     function test_joinGame_gameFull_reverts() public {
@@ -286,7 +288,7 @@ contract ShadowChainGameTest is Test {
         vm.deal(extra, 1 ether);
         vm.prank(extra);
         vm.expectRevert("Game not accepting players");
-        game.joinGame{value: ENTRY_FEE}(gameId, keccak256("extra_pos"));
+        game.joinGame{value: ENTRY_FEE}(gameId, keccak256("extra_pos"), DUMMY_INVENTORY_COMMITMENT);
     }
 
     function test_joinGame_autoStartsWhenFull() public {
@@ -294,7 +296,7 @@ contract ShadowChainGameTest is Test {
         uint256 gameId = game.createGame(SEED, 2, ENTRY_FEE);
 
         vm.prank(alice);
-        game.joinGame{value: ENTRY_FEE}(gameId, keccak256("alice"));
+        game.joinGame{value: ENTRY_FEE}(gameId, keccak256("alice"), DUMMY_INVENTORY_COMMITMENT);
 
         // Not started yet
         ShadowChainGame.Game memory g1 = game.getGame(gameId);
@@ -302,7 +304,7 @@ contract ShadowChainGameTest is Test {
 
         // Second player triggers auto-start
         vm.prank(bob);
-        game.joinGame{value: ENTRY_FEE}(gameId, keccak256("bob"));
+        game.joinGame{value: ENTRY_FEE}(gameId, keccak256("bob"), DUMMY_INVENTORY_COMMITMENT);
 
         ShadowChainGame.Game memory g2 = game.getGame(gameId);
         assertEq(uint8(g2.state), uint8(ShadowChainGame.GameState.Active));
@@ -454,9 +456,9 @@ contract ShadowChainGameTest is Test {
         uint256 gameId = strictGame.createGame(SEED, 2, 0);
 
         vm.prank(alice);
-        strictGame.joinGame(gameId, keccak256("alice"));
+        strictGame.joinGame(gameId, keccak256("alice"), DUMMY_INVENTORY_COMMITMENT);
         vm.prank(bob);
-        strictGame.joinGame(gameId, keccak256("bob"));
+        strictGame.joinGame(gameId, keccak256("bob"), DUMMY_INVENTORY_COMMITMENT);
 
         vm.prank(alice);
         vm.expectRevert("Invalid move proof");
@@ -600,7 +602,6 @@ contract ShadowChainGameTest is Test {
 
     function test_triggerCombat() public {
         uint256 gameId = _createAndStartGame();
-        _initializeInventory(gameId, alice);
 
         vm.prank(alice);
         game.triggerCombat(gameId, bob, DUMMY_PROOF, DUMMY_INPUTS);
@@ -612,7 +613,6 @@ contract ShadowChainGameTest is Test {
 
     function test_triggerCombat_damageApplied() public {
         uint256 gameId = _createAndStartGame();
-        _initializeInventory(gameId, alice);
 
         ShadowChainGame.Player memory bobBefore = game.getPlayer(gameId, bob);
 
@@ -628,7 +628,6 @@ contract ShadowChainGameTest is Test {
 
     function test_triggerCombat_cannotAttackSelf() public {
         uint256 gameId = _createAndStartGame();
-        _initializeInventory(gameId, alice);
 
         vm.prank(alice);
         vm.expectRevert("Cannot attack self");
@@ -645,7 +644,6 @@ contract ShadowChainGameTest is Test {
         // Can't attack dead player -- game already resolved since 2-player game
         // Use 4-player game instead
         uint256 gameId2 = _createAndStartFullGame();
-        _initializeInventory(gameId2, alice);
 
         vm.prank(charlie);
         game.forfeit(gameId2);
@@ -657,7 +655,6 @@ contract ShadowChainGameTest is Test {
 
     function test_triggerCombat_elimination() public {
         uint256 gameId = _createAndStartFullGame();
-        _initializeInventory(gameId, alice);
 
         // Attack bob repeatedly until eliminated
         // With base stats: attack=10, defense=5, damage = 10-5 + random(-3..+3) = 2..8
@@ -696,13 +693,9 @@ contract ShadowChainGameTest is Test {
         vm.prank(creator);
         uint256 gameId = strictGame.createGame(SEED, 2, 0);
         vm.prank(alice);
-        strictGame.joinGame(gameId, keccak256("alice"));
+        strictGame.joinGame(gameId, keccak256("alice"), DUMMY_INVENTORY_COMMITMENT);
         vm.prank(bob);
-        strictGame.joinGame(gameId, keccak256("bob"));
-
-        // Initialize inventory so we can test proof verification
-        vm.prank(alice);
-        strictGame.initializeInventory(gameId, DUMMY_INVENTORY_COMMITMENT);
+        strictGame.joinGame(gameId, keccak256("bob"), DUMMY_INVENTORY_COMMITMENT);
 
         vm.prank(alice);
         vm.expectRevert("Invalid combat proof");
@@ -1021,9 +1014,9 @@ contract ShadowChainGameTest is Test {
 
         // Both players join
         vm.prank(alice);
-        game.joinGame{value: ENTRY_FEE}(gameId, keccak256("alice_start"));
+        game.joinGame{value: ENTRY_FEE}(gameId, keccak256("alice_start"), DUMMY_INVENTORY_COMMITMENT);
         vm.prank(bob);
-        game.joinGame{value: ENTRY_FEE}(gameId, keccak256("bob_start"));
+        game.joinGame{value: ENTRY_FEE}(gameId, keccak256("bob_start"), DUMMY_INVENTORY_COMMITMENT);
 
         // Game should be active
         ShadowChainGame.Game memory g = game.getGame(gameId);
@@ -1042,9 +1035,6 @@ contract ShadowChainGameTest is Test {
         g = game.getGame(gameId);
         assertEq(g.currentTurn, 2);
 
-        // Turn 2: Alice initializes inventory (required before combat)
-        _initializeInventory(gameId, alice);
-        
         // Turn 2: Alice claims an artifact
         (, bytes32 treasureSeed) = game.getGameMap(gameId);
         (uint8 tx, uint8 ty) = _findFirstProceduralTreasure(treasureSeed);
@@ -1097,14 +1087,14 @@ contract ShadowChainGameTest is Test {
 
         // Join both games
         vm.prank(alice);
-        game.joinGame{value: ENTRY_FEE}(g1, keccak256("a1"));
+        game.joinGame{value: ENTRY_FEE}(g1, keccak256("a1"), DUMMY_INVENTORY_COMMITMENT);
         vm.prank(alice);
-        game.joinGame{value: ENTRY_FEE}(g2, keccak256("a2"));
+        game.joinGame{value: ENTRY_FEE}(g2, keccak256("a2"), DUMMY_INVENTORY_COMMITMENT);
 
         vm.prank(bob);
-        game.joinGame{value: ENTRY_FEE}(g1, keccak256("b1"));
+        game.joinGame{value: ENTRY_FEE}(g1, keccak256("b1"), DUMMY_INVENTORY_COMMITMENT);
         vm.prank(bob);
-        game.joinGame{value: ENTRY_FEE}(g2, keccak256("b2"));
+        game.joinGame{value: ENTRY_FEE}(g2, keccak256("b2"), DUMMY_INVENTORY_COMMITMENT);
 
         // Both games active
         assertEq(uint8(game.getGame(g1).state), uint8(ShadowChainGame.GameState.Active));

@@ -134,12 +134,6 @@ contract ShadowChainGame is ReentrancyGuard {
         bytes32 newCommitment
     );
 
-    event InventoryInitialized(
-        uint256 indexed gameId,
-        address indexed player,
-        bytes32 commitment
-    );
-
     event CombatTriggered(
         uint256 indexed gameId,
         address indexed attacker,
@@ -267,14 +261,16 @@ contract ShadowChainGame is ReentrancyGuard {
 
     /// @notice Join a game by committing to a starting position
     /// @param gameId The game to join
-    /// @param commitment Hash of starting position: keccak256(abi.encodePacked(x, y, salt))
-    function joinGame(uint256 gameId, bytes32 commitment) external payable {
+    /// @param commitment Hash of starting position: pedersen(x, y, salt)
+    /// @param inventoryCommitment Initial inventory commitment: pedersen([0,0,0,0,0,0,0,0], inventory_salt)
+    function joinGame(uint256 gameId, bytes32 commitment, bytes32 inventoryCommitment) external payable {
         Game storage g = games[gameId];
         require(g.state == GameState.Created, "Game not accepting players");
         require(g.playerCount < g.maxPlayers, "Game full");
         require(msg.value == g.entryFee, "Incorrect entry fee");
         require(players[gameId][msg.sender].status == PlayerStatus.None, "Already joined");
         require(commitment != bytes32(0), "Empty commitment");
+        require(inventoryCommitment != bytes32(0), "Empty inventory commitment");
 
         uint8 index = g.playerCount;
         g.playerCount++;
@@ -293,6 +289,9 @@ contract ShadowChainGame is ReentrancyGuard {
         
         // Store commitment for treasureSeed computation
         gameCommitments[gameId].push(commitment);
+        
+        // Store initial inventory commitment (empty inventory)
+        inventoryCommitments[gameId][msg.sender] = inventoryCommitment;
 
         emit PlayerJoined(gameId, msg.sender, index);
 
@@ -410,28 +409,6 @@ contract ShadowChainGame is ReentrancyGuard {
         emit InventoryCommitmentUpdated(gameId, msg.sender, newInventoryCommitment);
     }
 
-    /// @notice Initialize inventory commitment (required before combat)
-    /// @dev Players must call this with a commitment to their empty inventory
-    ///      before they can use combat_reveal proofs. The commitment is:
-    ///      pedersen([0,0,0,0,0,0,0,0, inventory_salt])
-    /// @param gameId The game ID
-    /// @param commitment Commitment to empty artifact inventory
-    function initializeInventory(uint256 gameId, bytes32 commitment) external {
-        Game storage g = games[gameId];
-        Player storage p = players[gameId][msg.sender];
-
-        require(g.state == GameState.Active || g.state == GameState.Created, "Game not joinable");
-        require(p.status == PlayerStatus.Alive, "Player not alive");
-        require(commitment != bytes32(0), "Empty commitment");
-        
-        // Can only initialize once (updates happen via claimArtifact)
-        require(inventoryCommitments[gameId][msg.sender] == bytes32(0), "Already initialized");
-
-        inventoryCommitments[gameId][msg.sender] = commitment;
-
-        emit InventoryInitialized(gameId, msg.sender, commitment);
-    }
-    
     /// @notice Derive artifact ID at a cell from treasureSeed (deterministic)
     /// @param x X coordinate (0-15)
     /// @param y Y coordinate (0-15)
