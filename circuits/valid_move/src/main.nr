@@ -3,7 +3,7 @@ use std::hash::pedersen_hash;
 /// Grid size constant
 global GRID_SIZE: u8 = 16;
 
-/// Valid Move Circuit
+/// Valid Move Circuit (Optimized)
 /// Proves a move from old position to new position is:
 ///   1. Both commitments are correct
 ///   2. New position is adjacent (N/S/E/W) or same as old (stay)
@@ -50,14 +50,20 @@ fn main(
     assert(ny < GRID_SIZE, "New y out of bounds");
 
     // 4. Adjacency check: Manhattan distance must be 0 (stay) or 1 (N/S/E/W)
-    let dx = if nx >= ox { nx - ox } else { ox - nx };
-    let dy = if ny >= oy { ny - oy } else { oy - ny };
-    let manhattan = dx + dy;
-    assert(manhattan <= 1, "Move is not adjacent (must be N/S/E/W or stay)");
+    // Using squared differences to avoid conditionals for abs value
+    // (dx)^2 + (dy)^2 <= 1 since we only allow moves of 0 or 1 in each dimension
+    // and diagonal moves (1,1) give 2 which fails
+    let dx = old_x - new_x;
+    let dy = old_y - new_y;
+    let dist_sq = dx * dx + dy * dy;
+    
+    // dist_sq must be 0 (stay) or 1 (cardinal move)
+    // In a prime field, checking dist_sq * (dist_sq - 1) == 0 verifies dist_sq in {0, 1}
+    assert(dist_sq * (dist_sq - 1) == 0, "Move is not adjacent (must be N/S/E/W or stay)");
 
     // 5. Wall check: new position must not be a wall
     let row_bits = map_walls[ny as u32] as u32;
-    let bit = (row_bits >> (nx as u8)) & 1;
+    let bit = (row_bits >> nx) & 1;
     assert(bit == 0, "New position is a wall");
 }
 

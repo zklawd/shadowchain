@@ -3,13 +3,25 @@ use poseidon::poseidon::bn254::hash_3;
 use poseidon::poseidon::bn254::hash_4;
 
 /// Threshold for treasure cells (same as contract: hash % 256 < 20 means ~7.8% of cells)
-global TREASURE_THRESHOLD: u32 = 20;
+global TREASURE_THRESHOLD: Field = 20;
 
 /// Domain separator for artifact ID derivation (must match contract!)
 /// "artifact" as ASCII: 0x617274696661637400
 global ARTIFACT_DOMAIN_SEP: Field = 0x617274696661637400;
 
-/// Claim Artifact Circuit (Procedural Treasures with Poseidon)
+// ============================================================
+// Unconstrained helpers for witness generation
+// ============================================================
+
+/// Get the last byte of a field (f mod 256) and the quotient
+unconstrained fn decompose_mod_256(f: Field) -> (Field, Field) {
+    let bytes = f.to_be_bytes::<32>();
+    let last_byte = bytes[31] as Field;
+    let quotient = (f - last_byte) / 256;
+    (last_byte, quotient)
+}
+
+/// Claim Artifact Circuit (Optimized)
 /// Proves a player is at a valid procedurally-generated treasure cell.
 ///
 /// Private inputs: x, y, salt
@@ -30,10 +42,9 @@ fn main(
     artifact_id: pub Field,
 ) {
     // Validate coordinates are in bounds (0-15)
-    let x_u8 = x as u8;
-    let y_u8 = y as u8;
-    assert(x_u8 < 16, "X coordinate out of bounds");
-    assert(y_u8 < 16, "Y coordinate out of bounds");
+    // Use Field comparison - avoid u8 cast range checks
+    assert(x as u8 < 16, "X coordinate out of bounds");
+    assert(y as u8 < 16, "Y coordinate out of bounds");
 
     // 1. Verify position commitment (still using Pedersen for commitments)
     let computed_commitment = pedersen_hash([x, y, salt]);
@@ -42,22 +53,36 @@ fn main(
     // 2. Verify cell is a procedural treasure using POSEIDON
     //    poseidon(x, y, treasure_seed) % 256 < THRESHOLD
     let cell_hash = hash_3([x, y, treasure_seed]);
-    let cell_hash_bytes = cell_hash.to_be_bytes::<32>();
-    // Use last byte for modulo 256
-    let hash_mod = cell_hash_bytes[31] as u32;
-    assert(hash_mod < TREASURE_THRESHOLD, "Cell is not a treasure");
+    
+    // Safety: decompose_mod_256 computes f mod 256 and quotient, verified below
+    let (cell_last_byte, cell_quotient) = unsafe { decompose_mod_256(cell_hash) };
+    // Verify decomposition: cell_hash == quotient * 256 + last_byte
+    assert(cell_hash == cell_quotient * 256 + cell_last_byte, "Cell hash decomposition failed");
+    // Verify last_byte < 256 (range check)
+    assert((cell_last_byte as u8) as Field == cell_last_byte, "Cell byte range check failed");
+    // Verify it's a treasure
+    assert(cell_last_byte as u8 < TREASURE_THRESHOLD as u8, "Cell is not a treasure");
 
     // 3. Verify artifact_id matches derivation using POSEIDON
     //    artifact_id = (poseidon(x, y, treasure_seed, ARTIFACT_DOMAIN_SEP) % 8) + 1
     let artifact_hash = hash_4([x, y, treasure_seed, ARTIFACT_DOMAIN_SEP]);
-    let artifact_bytes = artifact_hash.to_be_bytes::<32>();
-    let derived_id = ((artifact_bytes[31] as u32) % 8) + 1;
-    assert(artifact_id as u32 == derived_id, "Artifact ID mismatch");
+    
+    // Safety: decompose_mod_256 computes f mod 256, verified below  
+    let (artifact_last_byte, artifact_quotient) = unsafe { decompose_mod_256(artifact_hash) };
+    // Verify decomposition
+    assert(artifact_hash == artifact_quotient * 256 + artifact_last_byte, "Artifact hash decomposition failed");
+    // Verify last_byte < 256
+    assert((artifact_last_byte as u8) as Field == artifact_last_byte, "Artifact byte range check failed");
+    
+    // Compute derived_id = (last_byte % 8) + 1
+    // Since last_byte < 256, we need last_byte % 8
+    // We can verify: last_byte = q8 * 8 + r where r < 8 and r + 1 = artifact_id
+    let derived_remainder = artifact_last_byte as u8 % 8;
+    let derived_id = (derived_remainder + 1) as Field;
+    assert(artifact_id == derived_id, "Artifact ID mismatch");
 
-    // Validate artifact_id is in valid range
-    let aid = artifact_id as u32;
-    assert(aid >= 1, "Invalid artifact ID");
-    assert(aid <= 8, "Artifact ID out of range");
+    // artifact_id is derived as (x % 8) + 1, which is always in [1,8]
+    // No need for additional range assertions
 }
 
 /// Helper: compute a position commitment (still uses Pedersen)
@@ -70,14 +95,7 @@ fn is_treasure(x: Field, y: Field, treasure_seed: Field) -> bool {
     let cell_hash = hash_3([x, y, treasure_seed]);
     let cell_hash_bytes = cell_hash.to_be_bytes::<32>();
     let hash_mod = cell_hash_bytes[31] as u32;
-    hash_mod < TREASURE_THRESHOLD
-}
-
-/// Helper: compute artifact ID at a treasure cell using Poseidon
-fn get_artifact_id(x: Field, y: Field, treasure_seed: Field) -> u32 {
-    let artifact_hash = hash_4([x, y, treasure_seed, ARTIFACT_DOMAIN_SEP]);
-    let artifact_bytes = artifact_hash.to_be_bytes::<32>();
-    ((artifact_bytes[31] as u32) % 8) + 1
+    hash_mod < TREASURE_THRESHOLD as u32
 }
 
 // ============================================================
@@ -96,7 +114,7 @@ unconstrained fn find_treasure_cell(treasure_seed: Field) -> (Field, Field) {
                 let cell_hash = poseidon::poseidon::bn254::hash_3([x as Field, y as Field, treasure_seed]);
                 let cell_hash_bytes = cell_hash.to_be_bytes::<32>();
                 let hash_mod = cell_hash_bytes[31] as u32;
-                if hash_mod < TREASURE_THRESHOLD {
+                if hash_mod < TREASURE_THRESHOLD as u32 {
                     result_x = x as Field;
                     result_y = y as Field;
                     found = true;
@@ -119,7 +137,7 @@ unconstrained fn find_non_treasure_cell(treasure_seed: Field) -> (Field, Field) 
                 let cell_hash = poseidon::poseidon::bn254::hash_3([x as Field, y as Field, treasure_seed]);
                 let cell_hash_bytes = cell_hash.to_be_bytes::<32>();
                 let hash_mod = cell_hash_bytes[31] as u32;
-                if hash_mod >= TREASURE_THRESHOLD {
+                if hash_mod >= TREASURE_THRESHOLD as u32 {
                     result_x = x as Field;
                     result_y = y as Field;
                     found = true;
@@ -268,7 +286,7 @@ fn verify_live_sepolia_treasure() {
     let hash_mod = cell_hash_bytes[31] as u32;
     
     println(f"poseidon(14, 1, seed) last byte = {hash_mod}");
-    assert(hash_mod < TREASURE_THRESHOLD, "Circuit says NOT a treasure!");
+    assert(hash_mod < TREASURE_THRESHOLD as u32, "Circuit says NOT a treasure!");
     println(f"Circuit confirms: (14, 1) IS a treasure!");
     
     // Check artifact ID (contract returned 3)

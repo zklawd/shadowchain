@@ -8,53 +8,34 @@ global BASE_HP: u32 = 100;
 global BASE_ATTACK: u32 = 10;
 global BASE_DEFENSE: u32 = 5;
 
-/// Artifact stat bonuses and penalties (indexed by artifact_id 1..8)
-/// artifact_id 0 = no artifact (empty slot)
-///
-/// Returns [hp_bonus, atk_bonus, def_bonus, hp_penalty, atk_penalty, def_penalty]
-/// Positive and negative modifiers are tracked separately since circuits use u32.
+/// Artifact stat bonuses as lookup tables (indexed by artifact_id 0-8)
+/// Format: [hp_bonus, atk_bonus, def_bonus, hp_penalty, atk_penalty, def_penalty]
 ///
 /// Matches ArtifactRegistry.sol definitions:
-///   ID 1: Shadow Blade    -> ATK +5,  DEF  0, HP   0
-///   ID 2: Iron Aegis      -> ATK  0,  DEF +5, HP   0
-///   ID 3: Vitality Amulet -> ATK  0,  DEF  0, HP +20
-///   ID 4: Berserker Helm  -> ATK +8,  DEF -2, HP   0
-///   ID 5: Phantom Cloak   -> ATK -1,  DEF +7, HP +10
-///   ID 6: War Gauntlets   -> ATK +3,  DEF +3, HP   0
-///   ID 7: Blood Crystal   -> ATK +6,  DEF  0, HP -10
-///   ID 8: Soul Vessel     -> ATK +2,  DEF +2, HP +15
-fn get_artifact_bonus(artifact_id: u32) -> [u32; 6] {
-    if artifact_id == 1 {
-        // Shadow Blade: +5 ATK
-        [0, 5, 0, 0, 0, 0]
-    } else if artifact_id == 2 {
-        // Iron Aegis: +5 DEF
-        [0, 0, 5, 0, 0, 0]
-    } else if artifact_id == 3 {
-        // Vitality Amulet: +20 HP
-        [20, 0, 0, 0, 0, 0]
-    } else if artifact_id == 4 {
-        // Berserker Helm: +8 ATK, -2 DEF
-        [0, 8, 0, 0, 0, 2]
-    } else if artifact_id == 5 {
-        // Phantom Cloak: -1 ATK, +7 DEF, +10 HP
-        [10, 0, 7, 0, 1, 0]
-    } else if artifact_id == 6 {
-        // War Gauntlets: +3 ATK, +3 DEF
-        [0, 3, 3, 0, 0, 0]
-    } else if artifact_id == 7 {
-        // Blood Crystal: +6 ATK, -10 HP
-        [0, 6, 0, 10, 0, 0]
-    } else if artifact_id == 8 {
-        // Soul Vessel: +2 ATK, +2 DEF, +15 HP
-        [15, 2, 2, 0, 0, 0]
-    } else {
-        // artifact_id == 0 means empty slot, no bonus
-        [0, 0, 0, 0, 0, 0]
-    }
-}
+///   ID 0: Empty slot      -> all zeros
+///   ID 1: Shadow Blade    -> ATK +5
+///   ID 2: Iron Aegis      -> DEF +5
+///   ID 3: Vitality Amulet -> HP +20
+///   ID 4: Berserker Helm  -> ATK +8, DEF -2
+///   ID 5: Phantom Cloak   -> ATK -1, DEF +7, HP +10
+///   ID 6: War Gauntlets   -> ATK +3, DEF +3
+///   ID 7: Blood Crystal   -> ATK +6, HP -10
+///   ID 8: Soul Vessel     -> ATK +2, DEF +2, HP +15
 
-/// Combat Reveal Circuit
+// HP bonuses by artifact ID (0-8)
+global HP_BONUS: [u32; 9] = [0, 0, 0, 20, 0, 10, 0, 0, 15];
+// ATK bonuses by artifact ID
+global ATK_BONUS: [u32; 9] = [0, 5, 0, 0, 8, 0, 3, 6, 2];
+// DEF bonuses by artifact ID
+global DEF_BONUS: [u32; 9] = [0, 0, 5, 0, 0, 7, 3, 0, 2];
+// HP penalties by artifact ID
+global HP_PENALTY: [u32; 9] = [0, 0, 0, 0, 0, 0, 0, 10, 0];
+// ATK penalties by artifact ID
+global ATK_PENALTY: [u32; 9] = [0, 0, 0, 0, 0, 1, 0, 0, 0];
+// DEF penalties by artifact ID
+global DEF_PENALTY: [u32; 9] = [0, 0, 0, 0, 2, 0, 0, 0, 0];
+
+/// Combat Reveal Circuit (Optimized with lookup tables)
 /// Proves player stats (HP, attack, defense) are correctly derived from
 /// base stats + collected artifacts.
 ///
@@ -82,8 +63,7 @@ fn main(
     let computed_commitment = pedersen_hash([x, y, salt]);
     assert(computed_commitment == commitment, "Position commitment mismatch");
 
-    // 2. Compute stats from base + artifacts
-    //    Track bonuses and penalties separately to avoid u32 underflow
+    // 2. Compute stats from base + artifacts using lookup tables
     let mut hp_bonus: u32 = 0;
     let mut atk_bonus: u32 = 0;
     let mut def_bonus: u32 = 0;
@@ -96,13 +76,13 @@ fn main(
         // Artifact IDs must be valid (0-8)
         assert(aid <= 8, "Invalid artifact ID");
 
-        let mods = get_artifact_bonus(aid);
-        hp_bonus += mods[0];
-        atk_bonus += mods[1];
-        def_bonus += mods[2];
-        hp_penalty += mods[3];
-        atk_penalty += mods[4];
-        def_penalty += mods[5];
+        // Use lookup tables instead of if-else chain
+        hp_bonus += HP_BONUS[aid];
+        atk_bonus += ATK_BONUS[aid];
+        def_bonus += DEF_BONUS[aid];
+        hp_penalty += HP_PENALTY[aid];
+        atk_penalty += ATK_PENALTY[aid];
+        def_penalty += DEF_PENALTY[aid];
     }
 
     // Apply bonuses then penalties with floor values matching the contract:
