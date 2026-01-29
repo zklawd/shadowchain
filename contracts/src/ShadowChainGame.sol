@@ -158,6 +158,18 @@ contract ShadowChainGame is ReentrancyGuard {
         uint256 prize
     );
 
+    /// @notice SECURITY FIX (M-04): Events for pull-payment pattern
+    event PrizeCredited(
+        uint256 indexed gameId,
+        address indexed winner,
+        uint256 amount
+    );
+
+    event PrizeClaimed(
+        address indexed winner,
+        uint256 amount
+    );
+
     // =========================================================================
     //                               STATE
     // =========================================================================
@@ -184,6 +196,10 @@ contract ShadowChainGame is ReentrancyGuard {
     /// @notice Game ID → player address → inventory commitment
     /// @dev Commitment to player's owned artifacts: pedersen(artifact_ids[0..7], salt)
     mapping(uint256 => mapping(address => bytes32)) public inventoryCommitments;
+
+    /// @notice SECURITY FIX (M-04): Claimable prizes using pull-payment pattern
+    /// @dev player address → claimable amount in wei
+    mapping(address => uint256) public claimablePrizes;
 
     /// @notice Verifier contracts for each proof type
     IShadowVerifier public moveVerifier;
@@ -708,12 +724,35 @@ contract ShadowChainGame is ReentrancyGuard {
         uint256 prize = g.prizePool;
         g.prizePool = 0;
 
+        // SECURITY FIX (M-04): Use pull-payment pattern instead of push
+        // This prevents griefing attacks where a malicious winner contract
+        // could revert and block game resolution for all players
         if (winner != address(0) && prize > 0) {
-            (bool success,) = winner.call{value: prize}("");
-            require(success, "Prize transfer failed");
+            claimablePrizes[winner] += prize;
+            emit PrizeCredited(gameId, winner, prize);
         }
 
         emit GameResolved(gameId, winner, prize);
+    }
+
+    /// @notice Claim accumulated prizes (pull-payment pattern)
+    /// @dev SECURITY FIX (M-04): Winners must claim their prizes explicitly
+    function claimPrize() external nonReentrant {
+        uint256 amount = claimablePrizes[msg.sender];
+        require(amount > 0, "No prize to claim");
+
+        // Reset before transfer (CEI pattern)
+        claimablePrizes[msg.sender] = 0;
+
+        (bool success,) = msg.sender.call{value: amount}("");
+        require(success, "Prize transfer failed");
+
+        emit PrizeClaimed(msg.sender, amount);
+    }
+
+    /// @notice Get claimable prize amount for an address
+    function getClaimablePrize(address player) external view returns (uint256) {
+        return claimablePrizes[player];
     }
 
     /// @notice Receive ETH (for prize payouts returning)
