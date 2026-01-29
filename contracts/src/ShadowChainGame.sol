@@ -320,7 +320,7 @@ contract ShadowChainGame is ReentrancyGuard {
     /// @param gameId The game ID
     /// @param newCommitment New position commitment after the move
     /// @param proof ZK proof of valid move (from old commitment to new commitment)
-    /// @param publicInputs Public inputs for the proof: [old_commitment, new_commitment, map_hash]
+    /// @param publicInputs Public inputs for the proof: [old_commitment, new_commitment, map_hash, game_id]
     function submitMove(
         uint256 gameId,
         bytes32 newCommitment,
@@ -335,13 +335,14 @@ contract ShadowChainGame is ReentrancyGuard {
         require(!p.hasSubmittedThisTurn, "Already submitted this turn");
         require(newCommitment != bytes32(0), "Empty commitment");
 
-        // SECURITY FIX (H-01): Validate public inputs match on-chain state
-        // This prevents proof substitution attacks where an attacker submits
-        // a valid proof for a different move than what they're claiming
-        require(publicInputs.length >= 3, "Missing public inputs");
+        // SECURITY FIX (H-01 + H-03): Validate public inputs match on-chain state
+        // This prevents proof substitution attacks and cross-game replay
+        require(publicInputs.length >= 4, "Missing public inputs");
         require(publicInputs[0] == p.commitment, "Old commitment mismatch");
         require(publicInputs[1] == newCommitment, "New commitment mismatch");
         require(publicInputs[2] == mapHashes[gameId], "Map hash mismatch");
+        // H-03: Verify game_id matches to prevent cross-game proof replay
+        require(publicInputs[3] == bytes32(gameId), "Game ID mismatch");
 
         // Verify ZK proof of valid move
         require(moveVerifier.verify(proof, publicInputs), "Invalid move proof");

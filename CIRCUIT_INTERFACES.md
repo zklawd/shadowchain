@@ -30,7 +30,7 @@ The `claim_artifact` circuit uses Poseidon for procedural treasure generation.
 
 ---
 
-## 2. valid_move
+## 2. valid_move (SECURED)
 
 **Purpose:** Prove a move from old position to new position is valid.
 
@@ -48,12 +48,18 @@ The `claim_artifact` circuit uses Poseidon for procedural treasure generation.
 | old_commitment | Field | **Public** | Old position commitment |
 | new_commitment | Field | **Public** | New position commitment |
 | map_hash | Field | **Public** | Hash of map_walls |
+| game_id | Field | **Public** | Binds proof to specific game |
 
 ### Verification
+- `game_id != 0` (valid game)
 - Both positions in bounds (0-15)
 - Both commitments are correct
 - Move is adjacent (N/S/E/W) or stay in place
 - Neither position is a wall
+
+### Contract Integration
+- **MUST** verify `game_id` matches the actual game ID
+- Prevents cross-game proof replay attacks
 
 ---
 

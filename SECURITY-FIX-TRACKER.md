@@ -17,7 +17,7 @@
 |----|-------|--------|--------|-------|
 | H-01 | submitMove no public input validation | `fix/c02-nullifier-and-ownership` | ✅ FIXED | Added public input validation in submitMove |
 | H-02 | ArtifactRegistry no access control | `fix/c02-nullifier-and-ownership` | ✅ FIXED | Added onlyGame modifier |
-| H-03 | No game_id in move proofs | `fix/h03-game-binding` | ⏳ PENDING | |
+| H-03 | No game_id in move proofs | `fix/c02-nullifier-and-ownership` | ✅ FIXED | Added game_id to valid_move circuit |
 | H-04 | combat_reveal allows duplicate artifacts | `fix/c02-nullifier-and-ownership` | ✅ FIXED | Included in circuit restore |
 
 ## Medium Issues
