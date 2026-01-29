@@ -43,6 +43,9 @@ contract ShadowChainGameTest is Test {
             address(registry)
         );
 
+        // Link registry to game (H-02 security fix)
+        registry.setGameContract(address(game));
+
         // Fund test accounts
         vm.deal(creator, 10 ether);
         vm.deal(alice, 10 ether);

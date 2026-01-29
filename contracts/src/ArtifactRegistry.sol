@@ -71,16 +71,12 @@ contract ArtifactRegistry {
     }
 
     // =========================================================================
-    //                            CONSTRUCTOR
+    //                            INITIALIZATION
     // =========================================================================
 
-    /// @notice Set the game contract address
-    /// @param _gameContract The address of the ShadowChainGame contract
-    constructor(address _gameContract) {
-        gameContract = _gameContract;
-    }
-
-    /// @notice Set the game contract (can only be called once if not set in constructor)
+    /// @notice Set the game contract (can only be called once)
+    /// @dev Due to circular deployment dependencies, we deploy registry first,
+    ///      then game, then call setGameContract with the game address.
     /// @param _gameContract The address of the ShadowChainGame contract
     function setGameContract(address _gameContract) external {
         require(gameContract == address(0), "ArtifactRegistry: game contract already set");

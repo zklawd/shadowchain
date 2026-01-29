@@ -15,6 +15,8 @@ contract ArtifactRegistryTest is Test {
 
     function setUp() public {
         registry = new ArtifactRegistry();
+        // Set this test contract as the game contract to allow calling protected functions
+        registry.setGameContract(address(this));
     }
 
     // =========================================================================
@@ -88,6 +90,7 @@ contract ArtifactRegistryTest is Test {
 
         // Deploy two registries, assign with same params
         ArtifactRegistry reg2 = new ArtifactRegistry();
+        reg2.setGameContract(address(this));
 
         registry.assignArtifacts(GAME_ID, SEED, cells);
         reg2.assignArtifacts(GAME_ID, SEED, cells);

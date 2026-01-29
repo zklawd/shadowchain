@@ -50,6 +50,11 @@ contract DeployShadowChain is Script {
         );
         console.log("  ShadowChainGame:", address(game));
 
+        // 4. Link artifact registry to game contract (H-02 security fix)
+        console.log("Linking ArtifactRegistry to game...");
+        artifactRegistry.setGameContract(address(game));
+        console.log("  ArtifactRegistry linked to game");
+
         vm.stopBroadcast();
 
         console.log("");
