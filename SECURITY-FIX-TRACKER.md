@@ -9,7 +9,7 @@
 |-------|--------|--------|
 | 1 - Circuit/Contract Mismatch | C-02 | ✅ Fixed |
 | 2 - Missing Validations | C-01, H-04, H-01, H-02 | ✅ Fixed |
-| 3 - Game Binding | H-03, M-03, M-05 | ✅ Fixed |
+| 3 - Game Binding | H-03, M-03, M-05 | ⚠️ H-03 deferred; M-03, M-05 fixed |
 | 4 - Combat System | C-03 | ⚠️ Design documented |
 | 5 - Economic Security | M-04, M-01, M-02 | ✅ M-04 fixed, M-01/M-02 documented |
 
@@ -30,7 +30,7 @@
 |----|-------|--------|--------|-------|
 | H-01 | submitMove no public input validation | `fix/c02-nullifier-and-ownership` | ✅ FIXED | Added public input validation in submitMove |
 | H-02 | ArtifactRegistry no access control | `fix/c02-nullifier-and-ownership` | ✅ FIXED | Added onlyGame modifier |
-| H-03 | No game_id in move proofs | `fix/c02-nullifier-and-ownership` | ✅ FIXED | Added game_id to valid_move circuit |
+| H-03 | No game_id in move proofs | N/A | ⚠️ DEFERRED | Requires verifier regen; nargo 1.0.0-beta.3 generates stack-too-deep verifiers |
 | H-04 | combat_reveal allows duplicate artifacts | `fix/c02-nullifier-and-ownership` | ✅ FIXED | Included in circuit restore |
 
 ## Medium Issues
@@ -194,3 +194,22 @@ Using `blockhash + turn + addresses` for combat randomness. VRF integration (Cha
 
 ---
 *Auto-generated tracker for overnight security fix session*
+
+---
+
+### H-03 Deferral Notes
+
+**Issue:** Adding `game_id` to `valid_move` circuit requires regenerating the Solidity verifier.
+
+**Problem:** Noir 1.0.0-beta.3 with bb 0.82.2 generates UltraHonk verifiers that cause Solidity "stack too deep" errors even with `via_ir=true` and `optimizer_runs=1`.
+
+**Workaround:** Restored working verifiers from commit 087b147 which don't include `game_id`. The circuit was reverted to match.
+
+**Impact:** Move proofs can theoretically be replayed across games with identical map configurations. In practice, this requires:
+- Same map hash
+- Player has same commitment in both games
+- Attacker intercepts and replays proof before original tx confirms
+
+**Mitigation:** Low practical risk for MVP. Will fix when Noir tooling stabilizes or by using alternative verifier generation.
+
+**Status:** Documented for v2 implementation.
